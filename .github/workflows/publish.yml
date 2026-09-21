@@ -20,9 +20,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      # pi-extension resuelve los tipos del store vía dist: hay que compilarlo antes
+      # El root y pi-extension resuelven tipos del store vía dist (no se commitea): compilarlo antes
       - run: bun run --cwd packages/store build
+      - run: bun run typecheck
       - run: bun run --cwd packages/store typecheck
       - run: bun run --cwd packages/pi-extension typecheck
       - run: bun run build
