@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 10
+          bun-version: latest
+      # npm CLI solo para el publish final: `bun publish` no soporta
+      # Trusted Publishing OIDC (oven-sh/bun#22423). Bun resuelve
+      # `workspace:*` al empaquetar; npm publica el tarball con OIDC.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -20,19 +23,24 @@ jobs:
       # setup-node escribe `_authToken=${NODE_AUTH_TOKEN}` vacío y rompe OIDC
       # (actions/setup-node#1551): hay que borrarlo para que npm intente OIDC.
       - run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm -r --if-present run typecheck
-      - run: pnpm run build
-      - run: pnpm -r --if-present run build
-      # Orden topológico: store -> omp -> cli (la CLI no depende del workspace,
-      # pero se publica al final). Trusted Publisher en npm para cada paquete.
-      - run: pnpm --filter @tarileo/artifact-store publish --access public --no-git-checks
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run --cwd packages/store typecheck
+      - run: bun run --cwd packages/pi-extension typecheck
+      - run: bun run build
+      - run: bun run --cwd packages/store build
+      - run: bun run --cwd packages/pi-extension build
+      # Orden topológico: store -> omp -> cli. Trusted Publisher en npm
+      # para cada paquete.
+      - run: bun pm pack --cwd packages/store
+      - run: npm publish ./packages/store/tarileo-artifact-store-*.tgz --access public
         env:
           NPM_CONFIG_PROVENANCE: true
-      - run: pnpm --filter @tarileo/artifact-omp publish --access public --no-git-checks
+      - run: bun pm pack --cwd packages/pi-extension
+      - run: npm publish ./packages/pi-extension/tarileo-artifact-omp-*.tgz --access public
         env:
           NPM_CONFIG_PROVENANCE: true
-      - run: pnpm --filter @tarileo/artifacts-cli publish --access public --no-git-checks
+      - run: bun pm pack
+      - run: npm publish ./tarileo-artifacts-cli-*.tgz --access public
         env:
           NPM_CONFIG_PROVENANCE: true

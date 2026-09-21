@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env bun
 /**
  * Video Audio Enhancement Script
  *
@@ -7,11 +7,11 @@
  *   - Nova SR (fal.ai) - speech super-resolution
  *
  * Requires:
- *   npm install @fal-ai/client replicate
+ *   bun add @fal-ai/client replicate
  *
  * Usage:
- *   npx tsx scripts/enhance-video-audio.ts -i video.mp4 -m resemble
- *   npx tsx scripts/enhance-video-audio.ts -i video.mp4 -m nova
+ *   bun scripts/enhance-video-audio.ts -i video.mp4 -m resemble
+ *   bun scripts/enhance-video-audio.ts -i video.mp4 -m nova
  */
 
 import { spawn } from "child_process";
@@ -240,7 +240,7 @@ Models:
   nova       Nova SR via fal.ai - speech super-resolution
 
 Usage:
-  npx tsx scripts/enhance-video-audio.ts [options] <input> [output]
+ *  bun scripts/enhance-video-audio.ts [options] <input> [output]
 
 Options:
   -i, --input <path>          Input video file (required)
@@ -254,9 +254,9 @@ Options:
   -h, --help                  Show this help
 
 Examples:
-  REPLICATE_API_TOKEN=xxx npx tsx scripts/enhance-video-audio.ts video.mp4
-  FAL_KEY=xxx npx tsx scripts/enhance-video-audio.ts -i video.mp4 -m nova
-  REPLICATE_API_TOKEN=xxx npx tsx scripts/enhance-video-audio.ts video.mp4 -b 256k
+ *  REPLICATE_API_TOKEN=xxx bun scripts/enhance-video-audio.ts video.mp4
+ *  FAL_KEY=xxx bun scripts/enhance-video-audio.ts -i video.mp4 -m nova
+ *  REPLICATE_API_TOKEN=xxx bun scripts/enhance-video-audio.ts video.mp4 -b 256k
 `);
 }
 

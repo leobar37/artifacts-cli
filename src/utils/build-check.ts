@@ -27,7 +27,7 @@ export function runBuild(): void {
   log.info('📦 Building dashboard and server...');
 
   try {
-    execSync('pnpm run build', {
+    execSync('bun run build', {
       cwd: CLI_ROOT,
       stdio: 'inherit',
     });

@@ -12,7 +12,7 @@ Published as `@tarileo/artifacts-cli`, binary `artifact`.
 ## Install
 
 ```bash
-npm i -g @tarileo/artifacts-cli
+bun install -g @tarileo/artifacts-cli
 ```
 
 ## Workflow

@@ -46,10 +46,9 @@ export function startCommand(program: Command) {
         if (!fs.existsSync(viteConfigPath)) {
           log.error('Dev mode requires the artifact-cli source code with Vite installed.');
           log.info('Please run from the artifact-cli directory:');
-          log.info(chalk.cyan('  pnpm run dev'));
+          log.info(chalk.cyan('  bun run dev'));
           log.info('Or install artifact-cli from source:');
-          log.info(chalk.cyan('  cd /path/to/artifact-cli && pnpm install'));
-          process.exit(1);
+          log.info(chalk.cyan('  cd /path/to/artifact-cli && bun install'));
         }
 
         // Check existing instance
@@ -81,7 +80,7 @@ export function startCommand(program: Command) {
         // Start Vite dev server
         log.info('Starting Vite dev server...');
 
-        const viteProcess = spawn('npx', ['vite', '--port', '5177'], {
+        const viteProcess = spawn('bunx', ['vite', '--port', '5177'], {
           cwd: packageRoot,
           stdio: 'inherit',
           env: { ...process.env, ARTIFACT_API_PORT: String(apiPort) }

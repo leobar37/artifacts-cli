@@ -163,6 +163,24 @@ export class CompilationService {
       });
     }
 
+    // Warn about bare imports that won't resolve in the artifact sandbox.
+    // Only react (and subpaths) ship with the renderer; everything else
+    // must be inlined, so flag it instead of failing the build later.
+    const importPattern = /import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+    const seen = new Set<string>();
+    for (const match of sourceCode.matchAll(importPattern)) {
+      const specifier = match[1];
+      if (seen.has(specifier)) continue;
+      seen.add(specifier);
+      const bare = !specifier.startsWith('.') && !specifier.startsWith('/');
+      const bundled = specifier === 'react' || specifier === 'react-dom' || specifier.startsWith('react/');
+      if (bare && !bundled) {
+        result.warnings.push({
+          type: 'external_import',
+          message: `External import '${specifier}' is not bundled with the artifact. Inline it or remove it.`,
+        });
+      }
+    }
     // Try to compile with esbuild
     try {
       const buildResult = await build({

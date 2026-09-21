@@ -9,15 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm -r --if-present run typecheck
-      - run: pnpm run build
-      - run: pnpm -r --if-present run build
-      - run: pnpm run test
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run --cwd packages/store typecheck
+      - run: bun run --cwd packages/pi-extension typecheck
+      - run: bun run build
+      - run: bun run --cwd packages/store build
+      - run: bun run --cwd packages/pi-extension build
+      - run: bun test src/
