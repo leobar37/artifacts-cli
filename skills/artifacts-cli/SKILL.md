@@ -67,3 +67,24 @@ instance lockfile so `artifact list` prints the right URL.
   invalidate it via the watcher.
 - `--tailscale` falls back to localhost when `tailscale ip -4` fails
   (Tailscale not installed or logged out).
+
+## Flujo versionado (agentes con la extensión omp)
+
+Con `@tarileo/artifact-omp` linkeado (`omp plugin link ./packages/pi-extension`
+o `omp plugin install @tarileo/artifact-omp`), el agente NUNCA escribe
+`docs/artifacts/` a mano. Usa estos tools:
+
+- `artifact_create` — guarda HTML nuevo (crea `v001`).
+- `artifact_read` — lee el `latest` (o `versión` + `offset/limit` para HTMLs grandes). Úsalo antes de editar.
+- `artifact_update` — guarda edición como versión nueva. Pasa `baseVersion` del read: si otro tocó el artifact en medio, responde `CONFLICT` en vez de pisar.
+- `artifact_versions` — historial para rollback (re-publicar ese HTML vía `artifact_update`).
+- `artifact_list` — slugs del repo actual.
+
+Cada `put` versiona en el store global (`~/.artifact/store/<repoId>/`, mismo id
+en todos tus worktrees) y deja `docs/artifacts/<slug>/index.html` como symlink
+al `latest` — el dashboard y el `Read` lo ven como archivo normal.
+
+Lectura directa sin tools: `artifacts://<slug>` (latest) o
+`artifacts://<slug>/<version>` (ej. `/v002`) vía el read tool de omp.
+
+`docs/artifacts/` está ignorado en git por diseño: la verdad vive en el store.

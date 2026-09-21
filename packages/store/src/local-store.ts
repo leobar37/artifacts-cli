@@ -1,23 +1,17 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { emptyManifest, type ArtifactEntry, type RepoManifest } from "./manifest.js";
+import type { ArtifactContent, PutInput, PutResult, StorageProvider } from "./provider.js";
 import { getRepoId } from "./repo-id.js";
-
-export interface PutResult {
-  repoId: string;
-  slug: string;
-  version: string;
-  filePath: string;
-}
 
 function baseDir(): string {
   return process.env.ARTIFACT_HOME ?? path.join(homedir(), ".artifact", "store");
 }
 
 /** StorageProvider boundary: local-fs today, R2/worker tomorrow. */
-export class LocalStore {
+export class LocalStore implements StorageProvider {
   dirFor(cwd: string): { repoId: string; dir: string } {
     const repoId = getRepoId(cwd);
     return { repoId, dir: path.join(baseDir(), repoId) };
@@ -33,7 +27,45 @@ export class LocalStore {
     }
   }
 
-  put(cwd: string, input: { slug: string; title: string; html: string; type?: ArtifactEntry["type"] }): PutResult {
+  get(cwd: string, slug: string): ArtifactContent | null {
+    const { repoId } = this.dirFor(cwd);
+    const entry = this.readManifest(repoId).artifacts[slug];
+    if (!entry) return null;
+    return this.getVersion(cwd, slug, entry.latest);
+  }
+
+  getVersion(cwd: string, slug: string, version: string): ArtifactContent | null {
+    const { repoId, dir } = this.dirFor(cwd);
+    const entry = this.readManifest(repoId).artifacts[slug];
+    if (!entry || !entry.versions.some((v) => v.version === version)) return null;
+    const file = path.join(dir, slug, "versions", `${version}.html`);
+    if (!existsSync(file)) return null;
+    const found = entry.versions.find((v) => v.version === version)!;
+    return { slug, title: entry.title, type: entry.type, version, sha: found.sha, html: readFileSync(file, "utf-8") };
+  }
+
+  /**
+   * Point docs/artifacts/<slug>/index.html at the store latest.
+   * The agent and dashboard keep reading a plain file; the store stays canonical.
+   * Best-effort: a failed link never fails the put.
+   */
+  linkLatest(cwd: string, slug: string, latestPath: string): void {
+    try {
+      const docsFile = path.join(cwd, "docs", "artifacts", slug, "index.html");
+      mkdirSync(path.dirname(docsFile), { recursive: true });
+      try {
+        if (existsSync(docsFile) || lstatSync(docsFile, { throwIfNoEntry: false })) unlinkSync(docsFile);
+      } catch {
+        return;
+      }
+      symlinkSync(latestPath, docsFile);
+    } catch {
+      return;
+    }
+  }
+
+
+  put(cwd: string, input: PutInput): PutResult {
     const { repoId, dir } = this.dirFor(cwd);
     const slugDir = path.join(dir, input.slug);
     const versionsDir = path.join(slugDir, "versions");
@@ -66,6 +98,8 @@ export class LocalStore {
     };
     manifest.updatedAt = new Date().toISOString();
     writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
+
+    this.linkLatest(cwd, input.slug, latestPath);
 
     return { repoId, slug: input.slug, version, filePath: latestPath };
   }

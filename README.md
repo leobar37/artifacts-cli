@@ -112,4 +112,16 @@ bunx vitest run      # tests
 
 - El CLI detecta automáticamente si el dashboard necesita compilarse; usa `--build` para forzar.
 - Cada proyecto se identifica por su ruta absoluta; el lockfile vive en `~/.artifact/instances.json`.
-- Publicación a npm vía GitHub Actions con OIDC (ver `.github/workflows/publish.yml`).
+- Publicación a npm vía GitHub Actions con `NPM_TOKEN` (ver `.github/workflows/publish.yml`).
+
+## Almacenamiento y versiones
+
+`docs/artifacts/` es copia de trabajo local e **ignorado en git**. La verdad
+vive en el store global `~/.artifact/store/<repoId>/` (mismo id en todos tus
+worktrees del repo): cada guardado crea `versions/v001…`, actualiza
+`index.html` (latest) + `meta.json` + `manifest.json`, y deja
+`docs/artifacts/<slug>/index.html` como symlink al latest.
+
+Con la extensión omp (`@tarileo/artifact-omp`): `artifact_create/read/update/
+versions/list`. Lectura directa: `artifacts://<slug>` o
+`artifacts://<slug>/<version>`.
