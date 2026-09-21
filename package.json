@@ -10,13 +10,18 @@
     "dist/",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leobar37/artifacts-cli.git"
+  },
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch src/server/index.ts",
     "build": "pnpm run build:dashboard && pnpm run build:server",
     "build:dashboard": "tsc && vite build",
-    "build:server": "tsc -p tsconfig.node.json",
+    "build:server": "tsc -p tsconfig.node.json && chmod +x dist/cli/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test": "vitest run",
     "prepublishOnly": "pnpm run build"
   },
   "engines": {

@@ -1,0 +1,24 @@
+{
+  "name": "@tarileo/artifact-omp",
+  "version": "0.1.0",
+  "description": "Pi/omp extension for artifact-cli: create + view HTML artifacts from the agent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "files": ["dist/"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "omp": { "extensions": ["./dist/index.js"] },
+  "dependencies": {
+    "@tarileo/artifact-store": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.11.0",
+    "@oh-my-pi/pi-coding-agent": "^16.0.0"
+  },
+  "publishConfig": { "access": "public" },
+  "license": "MIT"
+}

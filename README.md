@@ -1,5 +1,7 @@
 # Artifact CLI
 
+[![skills.sh](https://skills.sh/b/leobar37/artifacts-cli)](https://skills.sh/leobar37/artifacts-cli)
+
 CLI para gestionar y visualizar artifacts HTML generados por Claude Code.
 
 ## Requisitos
@@ -11,6 +13,12 @@ CLI para gestionar y visualizar artifacts HTML generados por Claude Code.
 ## Instalación
 
 ```bash
+npm i -g @tarileo/artifacts-cli
+```
+
+Desde fuente:
+
+```bash
 pnpm install
 pnpm link --global
 ```
@@ -19,7 +27,7 @@ pnpm link --global
 
 ```bash
 # En un proyecto con docs/artifacts/
-artifact start         # Inicia servidor y abre dashboard (puerto 6000+)
+artifact start         # Inicia servidor y abre dashboard (puerto 7000+)
 artifact start --build # Fuerza rebuild antes de iniciar
 artifact list          # Muestra instancias activas
 artifact stop          # Detiene la instancia actual

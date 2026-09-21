@@ -1,0 +1,38 @@
+name: Publish to npm
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # setup-node escribe `_authToken=${NODE_AUTH_TOKEN}` vacío y rompe OIDC
+      # (actions/setup-node#1551): hay que borrarlo para que npm intente OIDC.
+      - run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm -r --if-present run typecheck
+      - run: pnpm run build
+      - run: pnpm -r --if-present run build
+      # Orden topológico: store -> omp -> cli (la CLI no depende del workspace,
+      # pero se publica al final). Trusted Publisher en npm para cada paquete.
+      - run: pnpm --filter @tarileo/artifact-store publish --access public --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: true
+      - run: pnpm --filter @tarileo/artifact-omp publish --access public --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: true
+      - run: pnpm --filter @tarileo/artifacts-cli publish --access public --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: true
