@@ -4,7 +4,6 @@ on:
     types: [published]
 permissions:
   contents: read
-  id-token: write
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -13,16 +12,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      # npm CLI solo para el publish final: `bun publish` no soporta
-      # Trusted Publishing OIDC (oven-sh/bun#22423). Bun resuelve
-      # `workspace:*` al empaquetar; npm publica el tarball con OIDC.
+      # Cliente npm solo para el publish final (`bun publish` no soporta
+      # provenance/OIDC). Autentica con el secret NPM_TOKEN (token tipo
+      # Automation de npm). Todo lo demás es bun.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      # setup-node escribe `_authToken=${NODE_AUTH_TOKEN}` vacío y rompe OIDC
-      # (actions/setup-node#1551): hay que borrarlo para que npm intente OIDC.
-      - run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       # pi-extension resuelve los tipos del store vía dist: hay que compilarlo antes
@@ -31,17 +27,16 @@ jobs:
       - run: bun run --cwd packages/pi-extension typecheck
       - run: bun run build
       - run: bun run --cwd packages/pi-extension build
-      # Orden topológico: store -> omp -> cli. Trusted Publisher en npm
-      # para cada paquete.
+      # Orden topológico: store -> omp -> cli.
       - run: bun pm pack --cwd packages/store
       - run: npm publish ./packages/store/tarileo-artifact-store-*.tgz --access public
         env:
-          NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: bun pm pack --cwd packages/pi-extension
       - run: npm publish ./packages/pi-extension/tarileo-artifact-omp-*.tgz --access public
         env:
-          NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: bun pm pack
       - run: npm publish ./tarileo-artifacts-cli-*.tgz --access public
         env:
-          NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
