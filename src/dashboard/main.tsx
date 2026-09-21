@@ -13,12 +13,6 @@ declare global {
 // Expose React globally so TSX artifact bundles can access it via banner injection
 window.__ARTIFACT_REACT__ = React;
 
-// React Grab - element selection for coding agents (dev only)
-if (import.meta.env.DEV) {
-  console.log("Loading react-grab for element selection...");
-  import("react-grab");
-}
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -7,17 +7,10 @@ import path from "path";
 import healthRouter from "./routes/health.js";
 import artifactsRouter from "./routes/artifacts.js";
 import projectRouter from "./routes/project.js";
-import chatRouter from "./routes/chat-pi.js";
 import { registry } from "../handlers/registry.js";
 import { sseRegistry } from "./sse.js";
 import { startWatcher } from "./watcher.js";
 import { invalidateCache } from "./routes/artifacts.js";
-import {
-  SessionStore,
-  FileSystemPersistence,
-  getSessionStoragePath,
-} from "./session/index.js";
-import { getProjectId } from "../utils/project.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("server");
@@ -26,10 +19,10 @@ interface ServerOptions {
   port: number;
   projectPath: string;
   artifactsPath: string;
+  host?: string;
 }
 
 let server: ReturnType<typeof import("@hono/node-server").serve> | null = null;
-let sessionStore: SessionStore | null = null;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,67 +33,12 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   process.env.ARTIFACT_PROJECT_PATH = options.projectPath;
   process.env.ARTIFACT_ARTIFACTS_PATH = options.artifactsPath;
 
-  // Initialize session store with persistence
-  const projectId = getProjectId(options.projectPath);
-  const storagePath = getSessionStoragePath(projectId);
-  const persistence = new FileSystemPersistence({ storageDir: storagePath });
-  sessionStore = new SessionStore({ persistence });
-
-  // Load existing sessions from disk
-  const restoredCount = await sessionStore.loadFromDisk();
-  if (restoredCount > 0) {
-    log.info(`Restored ${restoredCount} persistent sessions`);
-  }
-
-  // Clean up orphaned sessions (sessions for deleted artifacts)
-  const artifactsPath = options.artifactsPath;
-  if (persistence && restoredCount > 0) {
-    try {
-      const { existsSync, readdirSync } = await import("fs");
-      const { join } = await import("path");
-
-      // Get list of existing artifact slugs
-      const existingSlugs: string[] = [];
-      if (existsSync(artifactsPath)) {
-        const entries = readdirSync(artifactsPath, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const hasIndex = existsSync(
-              join(artifactsPath, entry.name, "index.html"),
-            );
-            const hasTsx = existsSync(
-              join(artifactsPath, entry.name, "content.tsx"),
-            );
-            if (hasIndex || hasTsx) {
-              existingSlugs.push(entry.name);
-            }
-          }
-        }
-      }
-
-      // Find and cleanup orphaned sessions
-      const orphaned = await persistence.validateSessions(existingSlugs);
-      if (orphaned.length > 0) {
-        const cleaned = await persistence.cleanupOrphaned(orphaned);
-        log.info(`Cleaned up ${cleaned} orphaned sessions`);
-      }
-    } catch (err) {
-      log.warn(
-        `Failed to cleanup orphaned sessions: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  // Make session store available to routes via environment or global
-  (global as any).__SESSION_STORE__ = sessionStore;
-
   await registry.loadAll();
 
   // API routes
   app.route("/api/health", healthRouter);
   app.route("/api/artifacts", artifactsRouter);
   app.route("/api/project", projectRouter);
-  app.route("/api/chat", chatRouter);
 
   // SSE endpoint for live artifact updates
   app.get("/api/events", (c) => {
@@ -160,13 +98,14 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const http = await import("http");
 
   const MAX_PORT_ATTEMPTS = 10;
+  const bindHost = options.host ?? "127.0.0.1";
 
   async function tryStart(port: number): Promise<Server> {
     return new Promise((resolve, reject) => {
       const srv = serve(
-        { fetch: app.fetch, port, hostname: "127.0.0.1" },
+        { fetch: app.fetch, port, hostname: bindHost },
         () => {
-          log.info(`Server running at http://localhost:${port}`);
+          log.info(`Server running at http://${bindHost}:${port}`);
           server = srv as any;
           resolve(srv as unknown as Server);
         },

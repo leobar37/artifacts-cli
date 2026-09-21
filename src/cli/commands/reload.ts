@@ -25,7 +25,8 @@ export function reloadCommand(program: Command) {
       }
 
       try {
-        const response = await fetch(`http://localhost:${instance.port}/api/artifacts/${slug}/reload`, {
+        const host = instance.host ?? 'localhost';
+        const response = await fetch(`http://${host}:${instance.port}/api/artifacts/${slug}/reload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });

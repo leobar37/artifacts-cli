@@ -32,8 +32,9 @@ export function listCommand(program: Command) {
         const status = isAlive
           ? chalk.green('running')
           : chalk.red('stopped');
+        const host = instance.host ?? 'localhost';
         const url = isAlive
-          ? chalk.blue(`http://localhost:${instance.port}`)
+          ? chalk.blue(`http://${host}:${instance.port}`)
           : chalk.gray('-');
 
         log.info(

@@ -22,6 +22,7 @@ export interface InstanceLock {
   projectPath: string;
   projectId: string;
   port: number;
+  host: string;
   pid: number;
   startedAt: string;
 }

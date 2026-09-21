@@ -6,6 +6,7 @@ import { getProjectId, getProjectName } from '../../utils/project.js';
 import { getInstance, setInstance, removeInstance } from '../../utils/lockfile.js';
 import { isInstanceAlive } from '../../utils/instance-checker.js';
 import { findAvailablePort } from '../../utils/port-finder.js';
+import { resolveHost } from '../../utils/host.js';
 import { startServer } from '../../server/index.js';
 import { openBrowser } from '../../utils/open-browser.js';
 import { ensureBuild, runBuild } from '../../utils/build-check.js';
@@ -23,14 +24,18 @@ export function startCommand(program: Command) {
     .command('start')
     .description('Start the artifact server for current project')
     .option('-p, --port <port>', 'Specific port to use')
+    .option('--host <host>', 'Host to advertise (IP/hostname, or "tailscale")')
+    .option('--tailscale', 'Expose via Tailscale (shortcut for --host tailscale)')
     .option('--no-open', 'Do not open browser automatically')
     .option('--build', 'Force rebuild before starting')
-    .option('--dev', 'Start in development mode with Vite HMR and React Grab')
+    .option('--dev', 'Start in development mode with Vite HMR')
     .action(async (options) => {
       const cwd = process.cwd();
       const projectId = getProjectId(cwd);
       const projectName = getProjectName(cwd);
       const artifactsPath = path.join(cwd, 'docs', 'artifacts');
+      const requestedHost: string | undefined = options.tailscale ? 'tailscale' : (options.host ?? process.env.ARTIFACT_HOST);
+      const { displayHost, bindHost, viaTailscale } = resolveHost(requestedHost);
 
       if (options.dev) {
         // Development mode: start backend + Vite dev server
@@ -50,7 +55,8 @@ export function startCommand(program: Command) {
         // Check existing instance
         const existing = getInstance(projectId);
         if (existing && await isInstanceAlive(existing)) {
-          log.info(`Server already running for ${projectName} on port ${existing.port}`);
+          const existingHost = existing.host ?? 'localhost';
+          log.info(`Server already running for ${projectName} at http://${existingHost}:${existing.port}`);
         } else {
           // Clean up stale lock if exists
           if (existing) {
@@ -58,17 +64,18 @@ export function startCommand(program: Command) {
           }
 
           log.info(`Starting API server for ${projectName} on port ${apiPort}...`);
-          await startServer({ port: apiPort, projectPath: cwd, artifactsPath });
+          await startServer({ port: apiPort, projectPath: cwd, artifactsPath, host: bindHost });
 
           setInstance({
             projectPath: cwd,
             projectId,
             port: apiPort,
+            host: displayHost,
             pid: process.pid,
             startedAt: new Date().toISOString(),
           });
 
-          log.info(`✓ API server running at http://localhost:${apiPort}`);
+          log.info(`✓ API server running at http://${displayHost}:${apiPort}${viaTailscale ? ' (tailscale)' : ''}`);
         }
 
         // Start Vite dev server
@@ -130,9 +137,10 @@ export function startCommand(program: Command) {
       // Check existing instance
       const existing = getInstance(projectId);
       if (existing && await isInstanceAlive(existing)) {
-        log.info(`Server already running for ${projectName} on port ${existing.port}`);
+        const existingHost = existing.host ?? 'localhost';
+        log.info(`Server already running for ${projectName} at http://${existingHost}:${existing.port}`);
         if (options.open) {
-          await openBrowser(`http://localhost:${existing.port}`);
+          await openBrowser(`http://${existingHost}:${existing.port}`);
         }
         process.exit(0);
       }
@@ -146,24 +154,25 @@ export function startCommand(program: Command) {
       const port = options.port ? parseInt(options.port, 10) : await findAvailablePort();
 
       // Start server
-      log.info(`Starting server for ${projectName} on port ${port}...`);
+      log.info(`Starting server for ${projectName} at http://${displayHost}:${port}...`);
 
       try {
-        await startServer({ port, projectPath: cwd, artifactsPath });
+        await startServer({ port, projectPath: cwd, artifactsPath, host: bindHost });
 
         // Save instance
         setInstance({
           projectPath: cwd,
           projectId,
           port,
+          host: displayHost,
           pid: process.pid,
           startedAt: new Date().toISOString(),
         });
 
-        log.info(`✓ Server running at http://localhost:${port}`);
+        log.info(`✓ Server running at http://${displayHost}:${port}${viaTailscale ? ' (tailscale)' : ''}`);
 
         if (options.open) {
-          await openBrowser(`http://localhost:${port}`);
+          await openBrowser(`http://${displayHost}:${port}`);
         }
 
         // Handle graceful shutdown

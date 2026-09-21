@@ -26,19 +26,28 @@ artifact stop          # Detiene la instancia actual
 artifact stop --all    # Detiene todas las instancias
 ```
 
-## Comandos
-
-- `artifact start [-p <port>] [--no-open] [--build]` - Iniciar servidor (puerto automático 6000-6100)
+- `artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]` - Iniciar servidor (puerto automático 7000-7100)
 - `artifact list` - Listar instancias
 - `artifact stop [--all]` - Detener servidor(es)
+
+## Exponer en red / Tailscale
+
+```bash
+artifact start --host tailscale  # o: artifact start --tailscale
+artifact start --host 192.168.1.50
+ARTIFACT_HOST=mi-host artifact start
+```
+
+Con `--host` no-loopback el servidor escucha en `0.0.0.0` y el lockfile guarda el host visible (`artifact list` muestra la URL correcta).
 
 ## Características
 
 - **Dashboard React** con navegación fluida
 - **Renderizado aislado** de artifacts vía iframe sandboxed
-- **Puertos 6000-6100** asignados automáticamente
+- **Puertos 7000-7100** asignados automáticamente
 - **Build automático** - Si no existe dist/, se compila automáticamente
 - **Múltiples proyectos** - Cada proyecto tiene su propia instancia
+- **Host configurable** - `--host` / `--tailscale` para exponer en LAN o Tailnet
 - **Tema oscuro** - Consistente con artifacts existentes
 
 ## Desarrollo

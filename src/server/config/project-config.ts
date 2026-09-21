@@ -5,7 +5,7 @@ const CONFIG_DIR = ".artifacts";
 const CONFIG_FILE = "config.json";
 
 export interface ProjectConfig {
-  defaultModel?: string | null;
+  host?: string | null;
   [key: string]: unknown;
 }
 
