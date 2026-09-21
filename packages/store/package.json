@@ -1,6 +1,6 @@
 {
   "name": "@tarileo/artifact-store",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared artifact storage: stable repoId, manifest, local-fs provider. Single owner of bytes for CLI + pi-extension + future R2/worker.",
   "type": "module",
   "main": "./dist/index.js",
