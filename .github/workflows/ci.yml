@@ -20,4 +20,4 @@ jobs:
       - run: bun run --cwd packages/pi-extension typecheck
       - run: bun run build
       - run: bun run --cwd packages/pi-extension build
-      - run: bun test src/
+      - run: bun test src/ && bunx vitest run packages/
