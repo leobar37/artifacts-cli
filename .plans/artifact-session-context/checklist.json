@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "plan": "artifact-session-context",
+  "mode": "structured",
+  "requirementsFile": "requirements.md",
+  "taskIndexFile": "task-index.md",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Session Store Foundation",
+      "file": "tasks/01-session-store.md",
+      "status": "completed",
+      "phase": "foundation",
+      "dependencies": [],
+      "requirements": [
+        "FR-001",
+        "FR-002"
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Content Description Generator",
+      "file": "tasks/02-content-describer.md",
+      "status": "completed",
+      "phase": "foundation",
+      "dependencies": [],
+      "requirements": [
+        "FR-007"
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "API Contract - Session Endpoints",
+      "file": "tasks/03-api-contract.md",
+      "status": "completed",
+      "phase": "contracts",
+      "dependencies": [
+        "T-001",
+        "T-002"
+      ],
+      "requirements": [
+        "FR-003",
+        "FR-004",
+        "FR-005",
+        "FR-006"
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Agent Context Injection",
+      "file": "tasks/04-agent-context-injection.md",
+      "status": "completed",
+      "phase": "backend",
+      "dependencies": [
+        "T-001"
+      ],
+      "requirements": [
+        "FR-008"
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Frontend Session Management",
+      "file": "tasks/05-frontend-session-mgmt.md",
+      "status": "completed",
+      "phase": "frontend",
+      "dependencies": [
+        "T-003"
+      ],
+      "requirements": [
+        "FR-009",
+        "FR-010"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "plan": "session-persistence",
+  "mode": "structured",
+  "requirementsFile": "requirements.md",
+  "taskIndexFile": "task-index.md",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Persistence Layer",
+      "file": "tasks/01-persistence-layer.md",
+      "status": "completed",
+      "phase": "foundation",
+      "dependencies": [],
+      "requirements": [
+        "FR-001",
+        "NFR-001",
+        "NFR-002",
+        "NFR-003",
+        "NFR-004"
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Session Store Integration",
+      "file": "tasks/02-session-store-integration.md",
+      "status": "completed",
+      "phase": "foundation",
+      "dependencies": [
+        "T-001"
+      ],
+      "requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-008"
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "API Endpoints",
+      "file": "tasks/03-api-endpoints.md",
+      "status": "completed",
+      "phase": "contracts",
+      "dependencies": [
+        "T-002"
+      ],
+      "requirements": [
+        "FR-003",
+        "FR-009"
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Dashboard Storage",
+      "file": "tasks/04-dashboard-storage.md",
+      "status": "completed",
+      "phase": "frontend",
+      "dependencies": [
+        "T-003"
+      ],
+      "requirements": [
+        "FR-004",
+        "FR-005"
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Claude Resume Handling",
+      "file": "tasks/05-claude-resume-handling.md",
+      "status": "completed",
+      "phase": "backend",
+      "dependencies": [
+        "T-002"
+      ],
+      "requirements": [
+        "FR-006",
+        "FR-007"
+      ]
+    },
+    {
+      "id": "T-006",
+      "title": "Cleanup Handling",
+      "file": "tasks/06-cleanup-handling.md",
+      "status": "completed",
+      "phase": "polish",
+      "dependencies": [
+        "T-001"
+      ],
+      "requirements": [
+        "NFR-005"
+      ]
+    }
+  ]
+}

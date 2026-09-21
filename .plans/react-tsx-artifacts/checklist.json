@@ -1,0 +1,158 @@
+{
+  "planName": "react-tsx-artifacts",
+  "version": "1.0.0",
+  "totalTasks": 10,
+  "completedTasks": 0,
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Setup del Servicio de Compilación",
+      "status": "completed",
+      "phase": 1,
+      "dependencies": [],
+      "file": "tasks/T-001-compilation-service.md",
+      "description": "Crear servicio Express que compile TSX on-the-fly usando esbuild"
+    },
+    {
+      "id": "T-002",
+      "title": "Cache de Compilación",
+      "status": "completed",
+      "phase": 1,
+      "dependencies": [
+        "T-001"
+      ],
+      "file": "tasks/T-002-compilation-cache.md",
+      "description": "Implementar sistema de cache en memory para artifacts compilados"
+    },
+    {
+      "id": "T-003",
+      "title": "Extensión de Tipos y API",
+      "status": "completed",
+      "phase": 2,
+      "dependencies": [],
+      "file": "tasks/T-003-type-detection.md",
+      "description": "Actualizar tipos Artifact y endpoint /api/artifacts para incluir campo format"
+    },
+    {
+      "id": "T-004",
+      "title": "Dashboard Dynamic Component Renderer",
+      "status": "completed",
+      "phase": 3,
+      "dependencies": [
+        "T-003"
+      ],
+      "file": "tasks/T-004-dashboard-renderer.md",
+      "description": "Crear componente ArtifactRenderer que cargue dinámicamente componentes TSX"
+    },
+    {
+      "id": "T-005",
+      "title": "Module Loader Utility",
+      "status": "completed",
+      "phase": 3,
+      "dependencies": [
+        "T-004"
+      ],
+      "file": "tasks/T-005-module-loader.md",
+      "description": "Crear hook useDynamicArtifact con cache, retry, y error handling"
+    },
+    {
+      "id": "T-006",
+      "title": "Integración ArtifactViewer",
+      "status": "completed",
+      "phase": 4,
+      "dependencies": [
+        "T-004",
+        "T-005"
+      ],
+      "file": "tasks/T-006-artifact-viewer-integration.md",
+      "description": "Actualizar ArtifactViewer para detectar formato y usar renderer correcto"
+    },
+    {
+      "id": "T-007",
+      "title": "Error Boundaries",
+      "status": "completed",
+      "phase": 4,
+      "dependencies": [
+        "T-004"
+      ],
+      "file": "tasks/T-007-error-boundaries.md",
+      "description": "Implementar error boundaries robustos con UI de recuperación"
+    },
+    {
+      "id": "T-008",
+      "title": "Test del Compilador",
+      "status": "completed",
+      "phase": 5,
+      "dependencies": [
+        "T-001",
+        "T-002"
+      ],
+      "file": "tasks/T-008-test-compilation.md",
+      "description": "Tests unitarios para el servicio de compilación"
+    },
+    {
+      "id": "T-009",
+      "title": "Testing de Integración",
+      "status": "completed",
+      "phase": 5,
+      "dependencies": [
+        "T-006"
+      ],
+      "file": "tasks/T-009-integration-testing.md",
+      "description": "Probar flujo completo: crear TSX, compilar, renderizar"
+    },
+    {
+      "id": "T-010",
+      "title": "Documentación del Skill",
+      "status": "completed",
+      "phase": 6,
+      "dependencies": [
+        "T-009"
+      ],
+      "file": "tasks/T-010-skill-documentation.md",
+      "description": "Actualizar skill artifact-base para documentar formato TSX"
+    }
+  ],
+  "phases": {
+    "1": {
+      "name": "Infraestructura de Compilación",
+      "tasks": [
+        "T-001",
+        "T-002"
+      ]
+    },
+    "2": {
+      "name": "Detección y API",
+      "tasks": [
+        "T-003"
+      ]
+    },
+    "3": {
+      "name": "Dashboard - Carga Dinámica",
+      "tasks": [
+        "T-004",
+        "T-005"
+      ]
+    },
+    "4": {
+      "name": "Integración",
+      "tasks": [
+        "T-006",
+        "T-007"
+      ]
+    },
+    "5": {
+      "name": "Testing y Validación",
+      "tasks": [
+        "T-008",
+        "T-009"
+      ]
+    },
+    "6": {
+      "name": "Documentación",
+      "tasks": [
+        "T-010"
+      ]
+    }
+  }
+}
