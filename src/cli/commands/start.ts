@@ -8,7 +8,7 @@ import { isInstanceAlive } from '../../utils/instance-checker.js';
 import { findAvailablePort } from '../../utils/port-finder.js';
 import { resolveHost } from '../../utils/host.js';
 import { startServer } from '../../server/index.js';
-import { openBrowser } from '../../utils/open-browser.js';
+import { isHeadless, openBrowser } from '../../utils/open-browser.js';
 import { ensureBuild, runBuild } from '../../utils/build-check.js';
 import { createLogger } from '../../utils/logger.js';
 import { fileURLToPath } from 'url';
@@ -169,6 +169,9 @@ export function startCommand(program: Command) {
         });
 
         log.info(`✓ Server running at http://${displayHost}:${port}${viaTailscale ? ' (tailscale)' : ''}`);
+        if (isHeadless()) {
+          log.info(`Headless server — open manually: http://${displayHost}:${port}`);
+        }
 
         if (options.open) {
           await openBrowser(`http://${displayHost}:${port}`);
