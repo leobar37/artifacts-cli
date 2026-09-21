@@ -25,10 +25,11 @@ jobs:
       - run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      # pi-extension resuelve los tipos del store vía dist: hay que compilarlo antes
+      - run: bun run --cwd packages/store build
       - run: bun run --cwd packages/store typecheck
       - run: bun run --cwd packages/pi-extension typecheck
       - run: bun run build
-      - run: bun run --cwd packages/store build
       - run: bun run --cwd packages/pi-extension build
       # Orden topológico: store -> omp -> cli. Trusted Publisher en npm
       # para cada paquete.
