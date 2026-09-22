@@ -1,7 +1,7 @@
 /**
- * Shim de tipos para el router interno de omp.
- * El import real ocurre en try/catch en runtime (ver tryRegisterArtifactsProtocol):
- * si omp mueve el archivo, la extensión sigue cargando sin protocolo.
+ * Type shim for omp's internal router.
+ * The real import happens in try/catch at runtime (see tryRegisterArtifactsProtocol):
+ * if omp moves the file, the extension still loads without the protocol.
  */
 declare module "@oh-my-pi/pi-coding-agent/src/internal-urls/router" {
   export const InternalUrlRouter: {

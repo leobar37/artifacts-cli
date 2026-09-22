@@ -68,23 +68,23 @@ instance lockfile so `artifact list` prints the right URL.
 - `--tailscale` falls back to localhost when `tailscale ip -4` fails
   (Tailscale not installed or logged out).
 
-## Flujo versionado (agentes con la extensión omp)
+## Versioned workflow (agents with the omp extension)
 
-Con `@tarileo/artifact-omp` linkeado (`omp plugin link ./packages/pi-extension`
-o `omp plugin install @tarileo/artifact-omp`), el agente NUNCA escribe
-`docs/artifacts/` a mano. Usa estos tools:
+With `@tarileo/artifact-omp` linked (`omp plugin link ./packages/pi-extension`
+or `omp plugin install @tarileo/artifact-omp`), the agent NEVER writes
+`docs/artifacts/` by hand. Use these tools:
 
-- `artifact_create` — guarda HTML nuevo (crea `v001`).
-- `artifact_read` — lee el `latest` (o `versión` + `offset/limit` para HTMLs grandes). Úsalo antes de editar.
-- `artifact_update` — guarda edición como versión nueva. Pasa `baseVersion` del read: si otro tocó el artifact en medio, responde `CONFLICT` en vez de pisar.
-- `artifact_versions` — historial para rollback (re-publicar ese HTML vía `artifact_update`).
-- `artifact_list` — slugs del repo actual.
+- `artifact_create` — saves new HTML (creates `v001`).
+- `artifact_read` — reads `latest` (or `version` + `offset/limit` for large HTML files). Use it before editing.
+- `artifact_update` — saves edits as a new version. Pass the `baseVersion` from the read: if someone else touched the artifact meanwhile, it answers `CONFLICT` instead of overwriting.
+- `artifact_versions` — history for rollback (re-publish that HTML via `artifact_update`).
+- `artifact_list` — slugs in the current repo.
 
-Cada `put` versiona en el store global (`~/.artifact/store/<repoId>/`, mismo id
-en todos tus worktrees) y deja `docs/artifacts/<slug>/index.html` como symlink
-al `latest` — el dashboard y el `Read` lo ven como archivo normal.
+Each `put` versions into the global store (`~/.artifact/store/<repoId>/`, same id
+across all your worktrees) and leaves `docs/artifacts/<slug>/index.html` as a symlink
+to `latest` — the dashboard and `Read` see it as a regular file.
 
-Lectura directa sin tools: `artifacts://<slug>` (latest) o
-`artifacts://<slug>/<version>` (ej. `/v002`) vía el read tool de omp.
+Direct reads without tools: `artifacts://<slug>` (latest) or
+`artifacts://<slug>/<version>` (e.g. `/v002`) via omp's read tool.
 
-`docs/artifacts/` está ignorado en git por diseño: la verdad vive en el store.
+`docs/artifacts/` is git-ignored by design: the store is the source of truth.

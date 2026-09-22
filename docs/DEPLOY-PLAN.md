@@ -1,31 +1,31 @@
-# Plan de despliegue: npm + skill (skills.sh) + landing (Vercel)
+# Deploy plan: npm + skill (skills.sh) + landing (Vercel)
 
-Fecha: 2026-09-21. Paquete: `@tarileo/artifacts-cli` v0.1.0.
-Objetivo: publicar la CLI en npm con CI, exponer una skill instalable vía
-`npx skills add leobar37/artifacts-cli` (compatible con skills.sh) y colgar una landing simple en Vercel.
+Date: 2026-09-21. Package: `@tarileo/artifacts-cli` v0.1.0.
+Goal: publish the CLI on npm with CI, expose an installable skill via
+`npx skills add leobar37/artifacts-cli` (skills.sh compatible), and put up a simple landing page on Vercel.
 
-Fuentes: [skills.sh docs](https://www.skills.sh/docs) · [`vercel-labs/skills` CLI](https://github.com/vercel-labs/skills) · [npm Trusted Publishers](https://docs.npmjs.com/trusted-publishers/) · [Agent Skills spec](https://github.com/anthropics/skills/blob/main/spec/agent-skills-spec.md).
+Sources: [skills.sh docs](https://www.skills.sh/docs) · [`vercel-labs/skills` CLI](https://github.com/vercel-labs/skills) · [npm Trusted Publishers](https://docs.npmjs.com/trusted-publishers/) · [Agent Skills spec](https://github.com/anthropics/skills/blob/main/spec/agent-skills-spec.md).
 
 ---
 
-## 0. Hallazgos previos (bloqueadores reales)
+## 0. Prior findings (real blockers)
 
-1. **`package.json` no tiene `repository` ni `publishConfig`.** npm Trusted Publishing
-   exige que `repository.url` coincida exactamente con el repo de GitHub del workflow.
-2. **`dist/` está en `.gitignore` (correcto), pero el `bin` necesita bit ejecutable.**
-   Hoy `dist/cli/index.js` tiene `+x`, pero `tsc` no preserva el bit: un `dist`
-   construido en CI sale sin `+x` y el binario instalado falla con `EACCES`.
-   Hay que agregar `chmod +x` al build o al workflow.
-3. **No existe `.github/workflows/`.** Hay que crearlo desde cero.
-4. **No existe `skills/`.** skills.sh descubre skills escaneando el repo:
-   cada skill vive en `skills/<nombre>/SKILL.md` (único archivo obligatorio).
-   Instalación del usuario final: `npx skills add <owner/repo>`.
-5. **No existe landing.** La opción más simple: carpeta `landing/` con HTML estático
-   + `vercel.json`, conectada como proyecto Vercel aparte con *Root Directory* = `landing/`.
+1. **`package.json` has no `repository` or `publishConfig`.** npm Trusted Publishing
+   requires `repository.url` to match the GitHub repo of the workflow exactly.
+2. **`dist/` is in `.gitignore` (correct), but the `bin` needs the executable bit.**
+   Today `dist/cli/index.js` has `+x`, but `tsc` doesn't preserve the bit: a `dist`
+   built in CI comes out without `+x` and the installed binary fails with `EACCES`.
+   Add `chmod +x` to the build or the workflow.
+3. **No `.github/workflows/`.** Must be created from scratch.
+4. **No `skills/`.** skills.sh discovers skills by scanning the repo:
+   each skill lives in `skills/<name>/SKILL.md` (the only required file).
+   End-user installation: `npx skills add <owner/repo>`.
+5. **No landing page.** Simplest option: a `landing/` folder with static HTML
+   + `vercel.json`, connected as a separate Vercel project with *Root Directory* = `landing/`.
 
-## 1. Fase 1 — Publicar la CLI en npm vía GitHub Actions
+## 1. Phase 1 — Publish the CLI on npm via GitHub Actions
 
-### 1.1 Cambios en `package.json`
+### 1.1 Changes to `package.json`
 
 ```json
 {
@@ -40,10 +40,10 @@ Fuentes: [skills.sh docs](https://www.skills.sh/docs) · [`vercel-labs/skills` C
 }
 ```
 
-### 1.2 Workflow `.github/workflows/publish.yml` (recomendado: OIDC, sin token)
+### 1.2 Workflow `.github/workflows/publish.yml` (recommended: OIDC, no token)
 
-Disparo: release publicada (`release: types: [published]`) o tag `v*`.
-Permisos: `contents: read` + `id-token: write`. Runner ubuntu, Node 22+ (npm ≥ 11.5.1).
+Trigger: published release (`release: types: [published]`) or `v*` tag.
+Permissions: `contents: read` + `id-token: write`. Ubuntu runner, Node 22+ (npm ≥ 11.5.1).
 
 ```yaml
 name: Publish to npm
@@ -65,48 +65,48 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      # setup-node escribe `_authToken=${NODE_AUTH_TOKEN}` vacío y rompe OIDC:
+      # setup-node writes an empty `_authToken=${NODE_AUTH_TOKEN}` and breaks OIDC:
       - run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run build
-      - run: npm publish --access public   # OIDC + provenance automática
+      - run: npm publish --access public   # OIDC + automatic provenance
 ```
 
-Trampa conocida (`actions/setup-node#1551`): sin el `sed`, npm falla con `ENEEDAUTH`
-en vez de intentar OIDC.
+Known gotcha (`actions/setup-node#1551`): without the `sed`, npm fails with `ENEEDAUTH`
+instead of attempting OIDC.
 
-### 1.3 Configuración manual (una sola vez, no se automatiza)
+### 1.3 Manual setup (one time, not automated)
 
-1. Publicar una primera versión manual (`npm publish --access public`) — npm solo
-   permite registrar *Trusted Publisher* sobre un paquete que ya existe.
-2. En npmjs.com → paquete → Settings → Trusted Publisher → GitHub Actions:
-   owner, repo, workflow `publish.yml` (solo el nombre, case-sensitive), environment si aplica.
-3. Opcional: environment `npm-publish` con revisores requeridos; restringir a tags/releases.
-4. Borrar tokens viejos de npm; opcionalmente activar *"Require 2FA and disallow tokens"*
-   (Trusted Publishing sigue funcionando porque usa OIDC, no tokens).
+1. Publish a first version manually (`npm publish --access public`) — npm only
+   lets you register a *Trusted Publisher* on a package that already exists.
+2. On npmjs.com → package → Settings → Trusted Publisher → GitHub Actions:
+   owner, repo, workflow `publish.yml` (name only, case-sensitive), environment if applicable.
+3. Optional: `npm-publish` environment with required reviewers; restrict to tags/releases.
+4. Delete old npm tokens; optionally enable *"Require 2FA and disallow tokens"*
+   (Trusted Publishing keeps working because it uses OIDC, not tokens).
 
-### 1.4 Versionado (decisión abierta)
+### 1.4 Versioning (open decision)
 
-- Simple: bump manual de `version` + GitHub Release → dispara el workflow.
-- Escalable: `changesets` (PR de release automático). Recomendado solo si habrá
-  releases frecuentes; para v0.x el flujo manual basta.
+- Simple: manual `version` bump + GitHub Release → triggers the workflow.
+- Scalable: `changesets` (automatic release PR). Only recommended if there will be
+  frequent releases; for v0.x the manual flow is enough.
 
-## 2. Fase 2 — Skill compatible con skills.sh
+## 2. Phase 2 — skills.sh-compatible skill
 
-### 2.1 Estructura (estándar portable Agent Skills)
+### 2.1 Structure (portable Agent Skills standard)
 
 ```
 skills/
 └── artifact-cli/
-    ├── SKILL.md            # obligatorio
+    ├── SKILL.md            # required
     ├── references/
-    │   └── commands.md     # opcional: referencia de comandos/flags
-    └── assets/             # opcional: logo, ejemplos
+    │   └── commands.md     # optional: command/flag reference
+    └── assets/             # optional: logo, examples
 ```
 
-`SKILL.md` usa **solo** frontmatter portable (`name` + `description`; nada de
-`allowed-tools`/`model`, que son propietarios de cada cliente):
+`SKILL.md` uses **only** portable frontmatter (`name` + `description`; none of
+the client-proprietary `allowed-tools`/`model`):
 
 ```markdown
 ---
@@ -118,72 +118,72 @@ description: Manage and preview HTML artifacts with the artifact CLI (start, lis
 ...
 ```
 
-Reglas del spec: `name` ≤ 64 chars, minúsculas/números/guiones, sin `anthropic`/`claude`;
-`description` ≤ 1024 chars y es la señal de descubrimiento (qué hace + cuándo usarla).
-Conviene una skill **procedimental**: instalar la CLI, init de `docs/artifacts/`,
-comandos con flags, convención `index.html`/`content.tsx`, troubleshooting.
+Spec rules: `name` ≤ 64 chars, lowercase/numbers/hyphens, no `anthropic`/`claude`;
+`description` ≤ 1024 chars and is the discovery signal (what it does + when to use it).
+A **procedural** skill works best: install the CLI, `docs/artifacts/` init,
+commands with flags, `index.html`/`content.tsx` conventions, troubleshooting.
 
-### 2.2 Cómo aparece en skills.sh
+### 2.2 How it shows up on skills.sh
 
-No hay registro manual: skills.sh indexa repos públicos con `SKILL.md` y el
-ranking sale de telemetría anónima de instalaciones del CLI `skills`.
-Para verificar compatibilidad local:
+No manual registration: skills.sh indexes public repos with `SKILL.md`, and the
+ranking comes from anonymous install telemetry of the `skills` CLI.
+To verify compatibility locally:
 
 ```bash
-npx skills add ./artifact-cli --list   # debe listar artifact-cli
+npx skills add ./artifact-cli --list   # should list artifact-cli
 npx skills add <owner>/<repo> -a claude-code -y
 ```
 
-Agregar al README el badge:
+Add the badge to the README:
 
 ```
 [![skills.sh](https://skills.sh/b/<owner>/<repo>)](https://skills.sh/<owner>/<repo>)
 ```
 
-## 3. Fase 3 — Landing simple en Vercel
+## 3. Phase 3 — Simple landing page on Vercel
 
-### 3.1 Estructura propuesta (HTML estático, cero build)
+### 3.1 Proposed structure (static HTML, zero build)
 
 ```
 landing/
-├── index.html      # hero, install (npm i -g), comandos, skill, links
+├── index.html      # hero, install (npm i -g), commands, skill, links
 ├── styles.css
 ├── vercel.json     # { "$schema": ..., "cleanUrls": true }
 └── public/
-    └── og.png      # opcional
+    └── og.png      # optional
 ```
 
-Contenido mínimo: qué es, `npm i -g @tarileo/artifacts-cli`, demo/GIF del dashboard,
-`npx skills add leobar37/artifacts-cli`, links a npm/GitHub/skills.sh.
+Minimum content: what it is, `npm i -g @tarileo/artifacts-cli`, dashboard demo/GIF,
+`npx skills add leobar37/artifacts-cli`, links to npm/GitHub/skills.sh.
 
-### 3.2 Despliegue
+### 3.2 Deployment
 
-1. Vercel → Add New Project → mismo repo, **Root Directory = `landing/`**, framework *Other*.
-2. Deploy automático por push a `main`; preview URLs por PR.
-3. Dominio: `artifact-cli.vercel.app` o custom.
+1. Vercel → Add New Project → same repo, **Root Directory = `landing/`**, *Other* framework.
+2. Automatic deploy on push to `main`; preview URLs per PR.
+3. Domain: `artifact-cli.vercel.app` or custom.
 
-### 3.3 Alternativa (descartada por defecto)
+### 3.3 Alternative (discarded by default)
 
-Next.js dentro del monorepo: más potencia (docs, playground) pero obliga a build,
-rompe la simplicidad y mezcla concerns con la CLI. Solo si la landing crece a docs.
+Next.js inside the monorepo: more power (docs, playground) but forces a build,
+breaks simplicity, and mixes concerns with the CLI. Only if the landing grows into docs.
 
-## 4. Orden de implementación y checklist
+## 4. Implementation order and checklist
 
-| # | Tarea | Verifica con |
+| # | Task | Verify with |
 |---|-------|--------------|
-| 1 | `repository` + `publishConfig` + `chmod +x` en `package.json` | `pnpm build && ls -l dist/cli/index.js` |
-| 2 | Crear `.github/workflows/publish.yml` (+ workflow `ci.yml` con typecheck/test) | `act` o push a rama + dispatch manual |
-| 3 | Primera publicación manual + registrar Trusted Publisher en npm | `npm view @tarileo/artifacts-cli version` |
-| 4 | Crear `skills/artifacts-cli/SKILL.md` (+ references) | `npx skills add ./artifacts-cli --list` |
-| 5 | Badge skills.sh en README | render del README |
-| 6 | Crear `landing/` + conectar proyecto Vercel (Root = `landing/`) | URL pública |
+| 1 | `repository` + `publishConfig` + `chmod +x` in `package.json` | `pnpm build && ls -l dist/cli/index.js` |
+| 2 | Create `.github/workflows/publish.yml` (+ `ci.yml` workflow with typecheck/test) | `act` or push to a branch + manual dispatch |
+| 3 | First manual publish + register Trusted Publisher on npm | `npm view @tarileo/artifacts-cli version` |
+| 4 | Create `skills/artifacts-cli/SKILL.md` (+ references) | `npx skills add ./artifacts-cli --list` |
+| 5 | skills.sh badge in README | README render |
+| 6 | Create `landing/` + connect Vercel project (Root = `landing/`) | Public URL |
 
-## 5. Tradeoffs asumidos
+## 5. Assumed tradeoffs
 
-- **OIDC vs `NPM_TOKEN`**: OIDC elimina el secreto y da provenance gratis; cuesta la
-  publicación manual inicial y Node ≥ 22 en CI.
-- **Release de GitHub vs changesets**: release manual = menos piezas móviles para v0.x.
-- **Landing estática vs framework**: estática = deploy inmediato, sin build; migrar después si hace falta.
-- **Skill en el mismo repo**: un solo repo = la skill versiona junto a la CLI y
-  skills.sh la descubre vía `npx skills add <owner>/<repo>`; repo separado solo si
-  se publican muchas skills no relacionadas.
+- **OIDC vs `NPM_TOKEN`**: OIDC removes the secret and gives free provenance; costs the
+  initial manual publish and Node ≥ 22 in CI.
+- **GitHub Release vs changesets**: manual release = fewer moving parts for v0.x.
+- **Static landing vs framework**: static = instant deploy, no build; migrate later if needed.
+- **Skill in the same repo**: one repo = the skill versions alongside the CLI and
+  skills.sh discovers it via `npx skills add <owner>/<repo>`; a separate repo only if
+  publishing many unrelated skills.

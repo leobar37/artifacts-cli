@@ -28,6 +28,6 @@ export const genericHandler: ArtifactHandler = {
     icon: 'file-text',
     color: 'blue',
     label: 'Generic',
-    description: 'Artifact visual genérico sin sesgo específico',
+    description: 'Generic visual artifact with no specific bias',
   }),
 };

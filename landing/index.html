@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Artifacts CLI — preview de artifacts HTML</title>
-  <meta name="description" content="CLI + dashboard para gestionar y previsualizar artifacts HTML/TSX. Instala, corre artifact start y listo." />
+  <title>Artifacts CLI — HTML artifact preview</title>
+  <meta name="description" content="CLI + dashboard to manage and preview HTML/TSX artifacts. Install, run artifact start, done." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -20,17 +20,17 @@
     </section>
 
     <section>
-      <h2>Uso</h2>
-      <pre><code># En un proyecto con docs/artifacts/
-artifact start              # servidor + dashboard (puertos 7000-7100)
-artifact start --tailscale  # exponer en tu Tailnet
+      <h2>Usage</h2>
+      <pre><code># In a project with docs/artifacts/
+artifact start              # server + dashboard (ports 7000-7100)
+artifact start --tailscale  # expose on your Tailnet
 artifact list / artifact stop --all
 artifact reload &lt;slug&gt;</code></pre>
-      <p>Cada artifact vive en <code>docs/artifacts/&lt;slug&gt;/</code> como <code>index.html</code> o <code>content.tsx</code>. El dashboard los muestra aislados y recarga al guardar.</p>
+      <p>Each artifact lives in <code>docs/artifacts/&lt;slug&gt;/</code> as <code>index.html</code> or <code>content.tsx</code>. The dashboard renders them isolated and reloads on save.</p>
     </section>
 
     <section>
-      <h2>Skill para agentes</h2>
+      <h2>Skill for agents</h2>
       <pre><code>bunx skills add leobar37/artifacts-cli</code></pre>
     </section>
   </main>

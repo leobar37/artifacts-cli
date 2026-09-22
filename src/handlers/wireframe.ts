@@ -32,6 +32,6 @@ export const wireframeHandler: ArtifactHandler = {
     icon: "layout",
     color: "orange",
     label: "Wireframe",
-    description: "Artifact con sesgo UI/layout/wireframe",
+    description: "UI/layout/wireframe-oriented artifact",
   }),
 };

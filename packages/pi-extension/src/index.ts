@@ -47,10 +47,10 @@ interface Pi {
 const store = new LocalStore();
 
 /**
- * Protocolo artifacts:// para lecturas via el read tool de omp.
- * Formas: artifacts://<slug> (latest), artifacts://<slug>/<version> (ej. /v002).
- * Solo lectura (immutable): la escritura va por los tools. Si el router
- * interno no existe en esta version de omp, los tools siguen funcionando.
+ * artifacts:// protocol for reads via omp's read tool.
+ * Forms: artifacts://<slug> (latest), artifacts://<slug>/<version> (e.g. /v002).
+ * Read-only (immutable): writes go through the tools. If the internal
+ * router doesn't exist in this omp version, the tools still work.
  */
 const artifactsProtocolHandler = {
   scheme: "artifacts" as const,
@@ -112,18 +112,18 @@ export default function (pi: Pi) {
   pi.setLabel("Artifact CLI");
   void tryRegisterArtifactsProtocol();
   pi.on("session_start", async (_event, ctx) => {
-    ctx.ui.notify(`artifacts listos en ${ctx.cwd}`, "info");
+    ctx.ui.notify(`artifacts ready in ${ctx.cwd}`, "info");
   });
 
   pi.registerTool({
     name: "artifact_create",
     label: "Artifact Create",
     description:
-      "Guarda HTML como artifact versionado fuera de git y devuelve ruta + versión. Úsalo SIEMPRE en vez de escribir docs/artifacts a mano.",
+      "Save HTML as a versioned artifact outside git and return path + version. ALWAYS use it instead of writing docs/artifacts by hand.",
     parameters: z.object({
-      slug: z.string().describe("kebab-case, ej. resumen-auth"),
-      title: z.string().describe("Título humano"),
-      html: z.string().describe("HTML completo standalone"),
+      slug: z.string().describe("kebab-case, e.g. auth-summary"),
+      title: z.string().describe("Human-readable title"),
+      html: z.string().describe("Complete standalone HTML"),
       type: z.string().default("generic").optional().describe("generic|study|wireframe"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
@@ -144,12 +144,12 @@ export default function (pi: Pi) {
     name: "artifact_read",
     label: "Artifact Read",
     description:
-      "Lee el contenido actual de un artifact (o una versión concreta). Úsalo antes de editar para trabajar sobre el latest.",
+      "Read an artifact's current content (or a specific version). Use it before editing to work on top of latest.",
     parameters: z.object({
-      slug: z.string().describe("kebab-case, ej. resumen-auth"),
-      version: z.string().optional().describe("ej. v002. Sin version = latest"),
-      offset: z.number().int().min(0).default(0).describe("línea inicial (HTMLs grandes)"),
-      limit: z.number().int().min(1).max(500).default(200).describe("máximo de líneas"),
+      slug: z.string().describe("kebab-case, e.g. auth-summary"),
+      version: z.string().optional().describe("e.g. v002. No version = latest"),
+      offset: z.number().int().min(0).default(0).describe("start line (large HTML files)"),
+      limit: z.number().int().min(1).max(500).default(200).describe("max lines"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const { slug, version, offset, limit } = params as { slug: string; version?: string; offset: number; limit: number };
@@ -169,22 +169,22 @@ export default function (pi: Pi) {
     name: "artifact_update",
     label: "Artifact Update",
     description:
-      "Edita un artifact guardando una versión nueva (nunca reescribe). Pasa baseVersion del artifact_read; si otro lo tocó en medio, avisa conflicto en vez de pisar.",
+      "Edit an artifact by saving a new version (never rewrites). Pass baseVersion from artifact_read; if someone else touched it meanwhile, it reports a conflict instead of overwriting.",
     parameters: z.object({
-      slug: z.string().describe("kebab-case existente"),
-      html: z.string().describe("HTML completo actualizado"),
-      baseVersion: z.string().optional().describe("versión vista en artifact_read, ej. v002"),
+      slug: z.string().describe("existing kebab-case"),
+      html: z.string().describe("Updated complete HTML"),
+      baseVersion: z.string().optional().describe("version seen in artifact_read, e.g. v002"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const { slug, html, baseVersion } = params as { slug: string; html: string; baseVersion?: string };
       const clean = slugify(slug);
       const current = store.get(ctx.cwd, clean);
       if (!current) {
-        const text = `NOT_FOUND ${clean}. Usa artifact_create para slugs nuevos.`;
+        const text = `NOT_FOUND ${clean}. Use artifact_create for new slugs.`;
         return { content: [{ type: "text", text }], details: { updated: false } };
       }
       if (baseVersion && current.version !== baseVersion) {
-        const text = `CONFLICT ${clean}: latest es ${current.version}, tu base era ${baseVersion}. Lee de nuevo con artifact_read y reintenta.`;
+        const text = `CONFLICT ${clean}: latest is ${current.version}, your base was ${baseVersion}. Read again with artifact_read and retry.`;
         return { content: [{ type: "text", text }], details: { updated: false, conflict: true, latest: current.version } };
       }
       const result = store.put(ctx.cwd, { slug: clean, title: current.title, html, type: current.type });
@@ -196,7 +196,7 @@ export default function (pi: Pi) {
   pi.registerTool({
     name: "artifact_versions",
     label: "Artifact Versions",
-    description: "Lista el historial de versiones de un artifact para elegir rollback (artifact_update con el html de esa versión).",
+    description: "List an artifact's version history to pick a rollback (artifact_update with that version's html).",
     parameters: z.object({
       slug: z.string().describe("kebab-case"),
     }),
@@ -213,7 +213,7 @@ export default function (pi: Pi) {
   pi.registerTool({
     name: "artifact_list",
     label: "Artifact List",
-    description: "Lista artifacts del repo actual (visible cross-worktree por repoId estable).",
+    description: "List artifacts in the current repo (visible cross-worktree via stable repoId).",
     parameters: z.object({}),
     async execute(_id, _params, _signal, _onUpdate, ctx) {
       const items = store.list(ctx.cwd);
@@ -225,12 +225,12 @@ export default function (pi: Pi) {
   });
 
   pi.registerCommand("artifact", {
-    description: "Crear o listar artifacts: /artifact list",
+    description: "Create or list artifacts: /artifact list",
     handler: async (args, ctx) => {
       ctx.ui.notify(`artifact ${args.trim() || "list"}`, "info");
     },
   });
 }
 
-/** Exportado solo para tests del protocolo. */
+/** Exported only for protocol tests. */
 export { artifactsProtocolHandler };

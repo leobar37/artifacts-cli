@@ -21,7 +21,7 @@ beforeAll(async () => {
   prevProjectPath = process.env.ARTIFACT_PROJECT_PATH;
   prevArtifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH;
 
-  // Flujo real: el agente guarda versionado y el link aparece en docs/
+  // Real flow: the agent saves a versioned artifact and the link shows up in docs/
   const store = new LocalStore();
   const result = store.put(projectDir, { slug: "e2e-demo", title: "E2E Demo", html: HTML, type: "study" });
   expect(result.version).toBe("v001");
@@ -48,12 +48,12 @@ afterAll(async () => {
 });
 
 describe("e2e: store -> symlink -> server -> dashboard API", () => {
-  it("health responde", async () => {
+  it("responds to health", async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     expect(res.status).toBe(200);
   });
 
-  it("lista el artifact creado via store", async () => {
+  it("lists the artifact created via store", async () => {
     const res = await fetch(`${baseUrl}/api/artifacts`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { artifacts: Array<{ slug: string; title: string }> ; totalCount: number };
@@ -62,7 +62,7 @@ describe("e2e: store -> symlink -> server -> dashboard API", () => {
     expect(body.artifacts[0].title).toBe("E2E Demo");
   });
 
-  it("detalle con handler", async () => {
+  it("detail with handler", async () => {
     const res = await fetch(`${baseUrl}/api/artifacts/e2e-demo`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { artifact: { slug: string }; handler: { type: string } | null };
@@ -70,19 +70,19 @@ describe("e2e: store -> symlink -> server -> dashboard API", () => {
     expect(body.handler?.type).toBe("study");
   });
 
-  it("sirve el html a través del symlink", async () => {
+  it("serves the html through the symlink", async () => {
     const res = await fetch(`${baseUrl}/artifacts/e2e-demo/index.html`);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("e2e");
   });
 
-  it("reload invalida caché", async () => {
+  it("reload invalidates cache", async () => {
     const res = await fetch(`${baseUrl}/api/artifacts/e2e-demo/reload`, { method: "POST" });
     expect(res.status).toBe(200);
   });
 
-  it("404 en slug inexistente", async () => {
-    const res = await fetch(`${baseUrl}/api/artifacts/no-existe`);
+  it("404 on missing slug", async () => {
+    const res = await fetch(`${baseUrl}/api/artifacts/does-not-exist`);
     expect(res.status).toBe(404);
   });
 });

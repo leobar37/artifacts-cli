@@ -30,6 +30,6 @@ export const studyHandler: ArtifactHandler = {
     icon: "book-open",
     color: "purple",
     label: "Study",
-    description: "Artifact con sesgo explicativo/pedagógico",
+    description: "Explanatory/educational artifact",
   }),
 };
