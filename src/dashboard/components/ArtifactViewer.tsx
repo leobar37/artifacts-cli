@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Artifact } from '../../types/artifact.js';
 import { ArtifactRenderer } from './ArtifactRenderer.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
+import { projectBase } from '../lib/project.js';
 import { Maximize2, Minimize2, Box } from 'lucide-react';
 
 interface ArtifactViewerProps {
@@ -121,7 +122,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
         ) : (
           <iframe
             ref={iframeRef}
-            src={`/artifacts/${artifact.slug}/index.html?v=${refreshKey}`}
+            src={`${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`}
             sandbox="allow-scripts allow-same-origin allow-popups"
             className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
             title={artifact.title}

@@ -21,10 +21,11 @@
 
     <section>
       <h2>Usage</h2>
-      <pre><code># In a project with docs/artifacts/
-artifact start              # server + dashboard (ports 7000-7100)
-artifact start --tailscale  # expose on your Tailnet
-artifact list / artifact stop --all
+      <pre><code># One daemon serves all projects (port 7000)
+artifact init                 # once per project
+artifact start               # daemon + dashboard at /p/&lt;id&gt;/
+artifact start --tailscale   # expose on your Tailnet
+artifact list / artifact stop
 artifact reload &lt;slug&gt;</code></pre>
       <p>Each artifact lives in <code>docs/artifacts/&lt;slug&gt;/</code> as <code>index.html</code> or <code>content.tsx</code>. The dashboard renders them isolated and reloads on save.</p>
     </section>

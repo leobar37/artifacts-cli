@@ -18,11 +18,23 @@ export interface ArtifactIndex {
   lastScanAt: Date;
 }
 
-export interface InstanceLock {
-  projectPath: string;
+export interface ProjectEntry {
   projectId: string;
+  projectPath: string;
+  name: string;
+  addedAt: string;
+}
+
+export interface DaemonInfo {
   port: number;
   host: string;
   pid: number;
   startedAt: string;
+}
+
+/** Hono context for routes mounted under `/p/:projectId`. */
+export interface ProjectEnv {
+  Variables: {
+    project: ProjectEntry;
+  };
 }

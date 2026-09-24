@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createLogger } from '../../utils/logger.js';
+import { apiUrl, getProjectIdFromPath } from '../lib/project.js';
 
 const log = createLogger('useDynamicArtifact');
 const moduleCache = new Map<string, React.ComponentType>();
@@ -43,6 +44,8 @@ export function useDynamicArtifact(
   slug: string,
   options?: UseDynamicArtifactOptions,
 ): UseDynamicArtifactResult {
+  const projectId = getProjectIdFromPath() ?? '';
+
   const {
     retryCount = 2,
     timeout = 30000,
@@ -51,7 +54,7 @@ export function useDynamicArtifact(
     version,
   } = options || {};
 
-  const cacheKey = version !== undefined ? `${slug}:${version}` : slug;
+  const cacheKey = version !== undefined ? `${projectId}:${slug}:${version}` : `${projectId}:${slug}`;
 
   const [Component, setComponent] = useState<React.ComponentType | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -84,7 +87,7 @@ export function useDynamicArtifact(
         if (debug) log.debug(`attempt ${i + 1}: ${slug}`);
 
         const response = await fetchWithTimeout(
-          `/api/artifacts/${slug}/bundle`,
+          apiUrl(`/artifacts/${slug}/bundle`, projectId),
           { timeout },
         );
 
@@ -135,7 +138,7 @@ export function useDynamicArtifact(
 
     setError(lastError);
     setLoading(false);
-  }, [slug, retryCount, timeout, cache, debug, cleanupBlobUrl]);
+  }, [slug, projectId, retryCount, timeout, cache, debug, cleanupBlobUrl]);
 
   const invalidateCache = useCallback(() => {
     moduleCache.delete(cacheKey);

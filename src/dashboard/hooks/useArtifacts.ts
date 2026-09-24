@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ArtifactIndex, Artifact } from '../../types/artifact.js';
 import { useArtifactEvents } from './useArtifactEvents.js';
+import { apiUrl, getProjectIdFromPath } from '../lib/project.js';
 
 type ArtifactType = 'generic' | 'study' | 'wireframe';
 
@@ -17,8 +18,8 @@ interface UseArtifactsReturn {
   refetch: () => void;
 }
 
-async function fetchArtifactIndex(type?: ArtifactType | 'all'): Promise<ArtifactIndex> {
-  const url = type && type !== 'all' ? `/api/artifacts?type=${type}` : '/api/artifacts';
+async function fetchArtifactIndex(projectId: string, type?: ArtifactType | 'all'): Promise<ArtifactIndex> {
+  const url = type && type !== 'all' ? apiUrl(`/artifacts?type=${type}`, projectId) : apiUrl('/artifacts', projectId);
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Failed to fetch artifacts: ${r.statusText}`);
   return r.json();
@@ -26,6 +27,7 @@ async function fetchArtifactIndex(type?: ArtifactType | 'all'): Promise<Artifact
 
 export function useArtifacts({ type, eventFilter }: UseArtifactsOptions = {}): UseArtifactsReturn {
   const queryClient = useQueryClient();
+  const projectId = getProjectIdFromPath() ?? '';
 
   const {
     data,
@@ -33,8 +35,8 @@ export function useArtifacts({ type, eventFilter }: UseArtifactsOptions = {}): U
     error,
     refetch,
   } = useQuery({
-    queryKey: ['artifacts', type],
-    queryFn: () => fetchArtifactIndex(type),
+    queryKey: ['artifacts', projectId, type],
+    queryFn: () => fetchArtifactIndex(projectId, type),
     staleTime: 30_000,
   });
 

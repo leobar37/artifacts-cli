@@ -1,16 +1,40 @@
 import { useState } from "react";
-import type { Artifact } from "../types/artifact.js";
+import type { Artifact, ProjectEntry } from "../types/artifact.js";
 import { useArtifacts } from "./hooks/useArtifacts.js";
 import { useSelectedArtifact } from "./hooks/useSelectedArtifact.js";
 import { useProject } from "./hooks/useProject.js";
+import { useProjects } from "./hooks/useProjects.js";
+import { getProjectIdFromPath } from "./lib/project.js";
 import { Header } from "./components/Header.js";
 import { ArtifactList } from "./components/ArtifactList.js";
 import { ArtifactViewer } from "./components/ArtifactViewer.js";
+import { ProjectPicker } from "./components/ProjectPicker.js";
 import { ChevronRight, ChevronLeft, X, AlertCircle } from "lucide-react";
 
 type ArtifactType = "generic" | "study" | "wireframe";
 
 export default function App() {
+  const projectId = getProjectIdFromPath();
+  const { projects, loading: projectsLoading } = useProjects();
+
+  if (projectsLoading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center p-8 bg-bg">
+        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent"></div>
+        <p className="text-sm text-text-muted">Loading projects...</p>
+      </div>
+    );
+  }
+
+  const project = projectId ? projects.find((p) => p.projectId === projectId) : undefined;
+  if (!project) {
+    return <ProjectPicker projects={projects} unknownId={projectId} />;
+  }
+
+  return <ProjectDashboard project={project} projects={projects} />;
+}
+
+function ProjectDashboard({ project, projects }: { project: ProjectEntry; projects: ProjectEntry[] }) {
   const [selectedType, setSelectedType] = useState<ArtifactType | "all">("all");
   const { artifacts, total, loading, error, refetch } = useArtifacts({
     type: selectedType,
@@ -56,6 +80,8 @@ export default function App() {
           selectedType={selectedType}
           onSelectType={setSelectedType}
           projectName={projectName}
+          projectId={project.projectId}
+          projects={projects}
         />
       )}
 

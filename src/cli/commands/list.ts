@@ -1,45 +1,58 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getAllInstances } from '../../utils/lockfile.js';
-import { isInstanceAlive } from '../../utils/instance-checker.js';
-import { getProjectName } from '../../utils/project.js';
+import { getDaemon, isDaemonAlive, listProjects, removeDaemon } from '../../utils/projects.js';
+import { getProjectArtifactsPath } from '../../utils/project.js';
+import { scanArtifacts } from '../../utils/scanner.js';
 import { createLogger } from '../../utils/logger.js';
 
 const log = createLogger('cli:list');
 
+function artifactCount(projectPath: string): number {
+  try {
+    return scanArtifacts(getProjectArtifactsPath(projectPath)).totalCount;
+  } catch {
+    return 0;
+  }
+}
+
 export function listCommand(program: Command) {
   program
     .command('list')
-    .description('List all artifact server instances')
+    .description('Show daemon status and registered projects')
     .action(async () => {
-      const instances = getAllInstances();
+      const daemon = getDaemon();
+      const alive = daemon ? await isDaemonAlive(daemon) : false;
 
-      if (instances.length === 0) {
-        log.info(chalk.gray('No instances found'));
+      if (daemon && alive) {
+        const host = daemon.host ?? 'localhost';
+        log.info(`Daemon: ${chalk.green('running')} at ${chalk.cyan(`http://${host}:${daemon.port}`)} (PID ${daemon.pid})`);
+      } else {
+        if (daemon) removeDaemon();
+        log.info(`Daemon: ${chalk.red('stopped')} (start with ${chalk.cyan('artifact start')})`);
+      }
+
+      const projects = listProjects();
+      if (projects.length === 0) {
+        log.info(chalk.gray('No projects registered'));
         return;
       }
 
-      log.info(chalk.bold('\nArtifact Server Instances\n'));
+      log.info(chalk.bold('\nProjects\n'));
       log.info(
         chalk.dim(
-          `${'Project'.padEnd(20)} ${'Port'.padEnd(8)} ${'Status'.padEnd(12)} URL\n`
+          `${'Project'.padEnd(20)} ${'Artifacts'.padEnd(10)} URL\n`
         )
       );
 
-      for (const instance of instances) {
-        const projectName = getProjectName(instance.projectPath);
-        const isAlive = await isInstanceAlive(instance);
-        const status = isAlive
-          ? chalk.green('running')
-          : chalk.red('stopped');
-        const host = instance.host ?? 'localhost';
-        const url = isAlive
-          ? chalk.blue(`http://${host}:${instance.port}`)
+      for (const project of projects) {
+        const count = artifactCount(project.projectPath);
+        const url = alive && daemon
+          ? chalk.blue(`http://${daemon.host ?? 'localhost'}:${daemon.port}/p/${project.projectId}/`)
           : chalk.gray('-');
-
         log.info(
-          `${projectName.padEnd(20)} ${String(instance.port).padEnd(8)} ${status.padEnd(12)} ${url}`
+          `${project.name.padEnd(20)} ${String(count).padEnd(10)} ${url}`
         );
+        log.info(chalk.dim(`  ${project.projectPath}`));
       }
 
       log.info('');

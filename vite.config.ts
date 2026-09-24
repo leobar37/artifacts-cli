@@ -29,10 +29,9 @@ export default defineConfig({
         target: `http://localhost:${process.env.ARTIFACT_API_PORT || 7000}`,
         changeOrigin: true,
       },
-      "/artifacts": {
+      "/p": {
         target: `http://localhost:${process.env.ARTIFACT_API_PORT || 7000}`,
         changeOrigin: true,
-        rewrite: (p) => p,
       },
     },
   },

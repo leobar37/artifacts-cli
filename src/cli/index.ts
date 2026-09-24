@@ -4,11 +4,13 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { startCommand } from "./commands/start.js";
+import { initCommand } from "./commands/init.js";
+import { serveCommand } from "./commands/serve.js";
 import { listCommand } from "./commands/list.js";
 import { stopCommand } from "./commands/stop.js";
+import { unregisterCommand } from "./commands/unregister.js";
 import { validateCommand } from "./commands/validate.js";
 import { reloadCommand } from "./commands/reload.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -22,11 +24,12 @@ program
   .name("artifact")
   .description("CLI for managing and viewing HTML artifacts")
   .version(packageJson.version);
-
+initCommand(program);
+serveCommand(program);
 startCommand(program);
 listCommand(program);
 stopCommand(program);
+unregisterCommand(program);
 validateCommand(program);
 reloadCommand(program);
-
 program.parse();

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Package, RefreshCw, PanelLeft, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.js';
+import type { ProjectEntry } from '../../types/artifact.js';
 
 type ArtifactType = 'generic' | 'study' | 'wireframe';
 
@@ -13,6 +14,8 @@ interface HeaderProps {
   selectedType: ArtifactType | 'all';
   onSelectType: (type: ArtifactType | 'all') => void;
   projectName?: string;
+  projectId: string;
+  projects: ProjectEntry[];
 }
 
 const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
@@ -22,7 +25,7 @@ const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
   { value: 'wireframe', label: 'Wireframe' },
 ];
 
-export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName }: HeaderProps) {
+export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -53,6 +56,18 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
               {total} artifact{total !== 1 ? 's' : ''}
             </p>
           </div>
+          {projects.length > 1 && (
+            <select
+              value={projectId}
+              onChange={(e) => { window.location.href = `/p/${e.target.value}/`; }}
+              title="Switch project"
+              className="max-w-48 truncate rounded-lg border border-line bg-panel px-2 py-1.5 text-xs text-text-secondary hover:bg-panel-hover"
+            >
+              {projects.map((p) => (
+                <option key={p.projectId} value={p.projectId}>{p.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

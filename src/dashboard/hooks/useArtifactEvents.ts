@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { apiUrl } from '../lib/project.js';
 
 type ArtifactEvent = {
   slug: string;
@@ -20,7 +21,7 @@ export function useArtifactEvents({ filter, onEvent }: UseArtifactEventsOptions)
   filterRef.current = filter;
 
   useEffect(() => {
-    const es = new EventSource('/api/events');
+    const es = new EventSource(apiUrl('/events'));
 
     es.addEventListener('artifacts:update', (e: MessageEvent) => {
       try {

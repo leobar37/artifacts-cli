@@ -1,88 +1,163 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalStore } from "@tarileo/artifact-store";
 import { findAvailablePort } from "../../utils/port-finder.js";
+import { registerProject } from "../../utils/projects.js";
 import { startServer, stopServer } from "../index.js";
 
-const HTML = `<html><head><title>E2E Demo</title><meta name="artifact-type" content="study"></head><body>e2e</body></html>`;
+const HTML_A = `<html><head><title>Proj A</title><meta name="artifact-type" content="study"></head><body>a</body></html>`;
+const HTML_B = `<html><head><title>Proj B</title><meta name="artifact-type" content="study"></head><body>b</body></html>`;
 
-let projectDir: string;
 let homeDir: string;
+let projectA: string;
+let projectB: string;
+let projectC: string;
 let baseUrl: string;
-let prevProjectPath: string | undefined;
-let prevArtifactsPath: string | undefined;
+let idA: string;
+let idB: string;
+let prevArtifactHome: string | undefined;
+let prevArtifactDir: string | undefined;
 
 beforeAll(async () => {
-  projectDir = mkdtempSync(join(tmpdir(), "artifact-e2e-proj-"));
   homeDir = mkdtempSync(join(tmpdir(), "artifact-e2e-home-"));
+  projectA = mkdtempSync(join(tmpdir(), "artifact-e2e-proj-a-"));
+  projectB = mkdtempSync(join(tmpdir(), "artifact-e2e-proj-b-"));
+  projectC = mkdtempSync(join(tmpdir(), "artifact-e2e-proj-c-"));
+  prevArtifactHome = process.env.ARTIFACT_HOME;
+  prevArtifactDir = process.env.ARTIFACT_DIR;
   process.env.ARTIFACT_HOME = join(homeDir, "store");
-  prevProjectPath = process.env.ARTIFACT_PROJECT_PATH;
-  prevArtifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH;
+  process.env.ARTIFACT_DIR = join(homeDir, "dot-artifact");
 
-  // Real flow: the agent saves a versioned artifact and the link shows up in docs/
+  // Real flow: the agent saves versioned artifacts and the links show up in docs/
   const store = new LocalStore();
-  const result = store.put(projectDir, { slug: "e2e-demo", title: "E2E Demo", html: HTML, type: "study" });
-  expect(result.version).toBe("v001");
+  const putA = store.put(projectA, { slug: "demo", title: "Demo A", html: HTML_A, type: "study" });
+  expect(putA.version).toBe("v001");
+  const putB = store.put(projectB, { slug: "demo", title: "Demo B", html: HTML_B, type: "study" });
+  expect(putB.version).toBe("v001");
+
+  idA = registerProject(projectA).projectId;
+  idB = registerProject(projectB).projectId;
+  expect(idA).not.toBe(idB);
 
   const port = await findAvailablePort();
-  await startServer({
-    port,
-    projectPath: projectDir,
-    artifactsPath: join(projectDir, "docs", "artifacts"),
-    host: "127.0.0.1",
-  });
+  await startServer({ port, host: "127.0.0.1" });
   baseUrl = `http://127.0.0.1:${port}`;
 }, 30000);
 
 afterAll(async () => {
   await stopServer();
-  if (prevProjectPath === undefined) delete process.env.ARTIFACT_PROJECT_PATH;
-  else process.env.ARTIFACT_PROJECT_PATH = prevProjectPath;
-  if (prevArtifactsPath === undefined) delete process.env.ARTIFACT_ARTIFACTS_PATH;
-  else process.env.ARTIFACT_ARTIFACTS_PATH = prevArtifactsPath;
-  delete process.env.ARTIFACT_HOME;
-  rmSync(projectDir, { recursive: true, force: true });
+  if (prevArtifactHome === undefined) delete process.env.ARTIFACT_HOME;
+  else process.env.ARTIFACT_HOME = prevArtifactHome;
+  if (prevArtifactDir === undefined) delete process.env.ARTIFACT_DIR;
+  else process.env.ARTIFACT_DIR = prevArtifactDir;
   rmSync(homeDir, { recursive: true, force: true });
+  rmSync(projectA, { recursive: true, force: true });
+  rmSync(projectB, { recursive: true, force: true });
+  rmSync(projectC, { recursive: true, force: true });
 });
 
-describe("e2e: store -> symlink -> server -> dashboard API", () => {
+describe("daemon: one server, many projects", () => {
   it("responds to health", async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     expect(res.status).toBe(200);
   });
 
-  it("lists the artifact created via store", async () => {
-    const res = await fetch(`${baseUrl}/api/artifacts`);
+  it("lists registered projects", async () => {
+    const res = await fetch(`${baseUrl}/api/projects`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { artifacts: Array<{ slug: string; title: string }> ; totalCount: number };
-    expect(body.totalCount).toBe(1);
-    expect(body.artifacts[0].slug).toBe("e2e-demo");
-    expect(body.artifacts[0].title).toBe("E2E Demo");
+    const body = (await res.json()) as { projects: Array<{ projectId: string }> };
+    expect(body.projects.map((p) => p.projectId).sort()).toEqual([idA, idB].sort());
   });
 
-  it("detail with handler", async () => {
-    const res = await fetch(`${baseUrl}/api/artifacts/e2e-demo`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { artifact: { slug: string }; handler: { type: string } | null };
-    expect(body.artifact.slug).toBe("e2e-demo");
-    expect(body.handler?.type).toBe("study");
+  it("keeps same-slug artifacts isolated per project", async () => {
+    const resA = await fetch(`${baseUrl}/p/${idA}/api/artifacts/demo`);
+    expect(resA.status).toBe(200);
+    const bodyA = (await resA.json()) as { artifact: { title: string } };
+    expect(bodyA.artifact.title).toBe("Proj A");
+
+    const resB = await fetch(`${baseUrl}/p/${idB}/api/artifacts/demo`);
+    expect(resB.status).toBe(200);
+    const bodyB = (await resB.json()) as { artifact: { title: string } };
+    expect(bodyB.artifact.title).toBe("Proj B");
   });
 
-  it("serves the html through the symlink", async () => {
-    const res = await fetch(`${baseUrl}/artifacts/e2e-demo/index.html`);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain("e2e");
+  it("serves each project's html through its symlink", async () => {
+    const resA = await fetch(`${baseUrl}/p/${idA}/artifacts/demo/index.html`);
+    expect(resA.status).toBe(200);
+    expect(await resA.text()).toContain("<body>a</body>");
+
+    const resB = await fetch(`${baseUrl}/p/${idB}/artifacts/demo/index.html`);
+    expect(resB.status).toBe(200);
+    expect(await resB.text()).toContain("<body>b</body>");
   });
 
-  it("reload invalidates cache", async () => {
-    const res = await fetch(`${baseUrl}/api/artifacts/e2e-demo/reload`, { method: "POST" });
-    expect(res.status).toBe(200);
-  });
-
-  it("404 on missing slug", async () => {
-    const res = await fetch(`${baseUrl}/api/artifacts/does-not-exist`);
+  it("404s unknown projects", async () => {
+    const res = await fetch(`${baseUrl}/p/does-not-exist/api/artifacts`);
     expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("UNKNOWN_PROJECT");
+  });
+
+  it("blocks path traversal outside the artifacts dir", async () => {
+    const res = await fetch(`${baseUrl}/p/${idA}/artifacts/%2E%2E/%2E%2E/manifest.json`);
+    expect([403, 404]).toContain(res.status);
+  });
+
+  it("reload invalidates only that project's cache", async () => {
+    const res = await fetch(`${baseUrl}/p/${idA}/api/artifacts/demo/reload`, { method: "POST" });
+    expect(res.status).toBe(200);
+  });
+
+  it("404s missing slugs per project", async () => {
+    const res = await fetch(`${baseUrl}/p/${idA}/api/artifacts/does-not-exist`);
+    expect(res.status).toBe(404);
+  });
+
+  it("registers projects via POST /api/projects", async () => {
+    const res = await fetch(`${baseUrl}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: projectC }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { project: { projectId: string } };
+    const idC = body.project.projectId;
+
+    const list = (await (await fetch(`${baseUrl}/api/projects`)).json()) as {
+      projects: Array<{ projectId: string }>;
+    };
+    expect(list.projects.map((p) => p.projectId)).toContain(idC);
+
+    // Unregister again and confirm it is gone
+    const del = await fetch(`${baseUrl}/api/projects/${idC}`, { method: "DELETE" });
+    expect(del.status).toBe(200);
+    const gone = await fetch(`${baseUrl}/p/${idC}/api/artifacts`);
+    expect(gone.status).toBe(404);
+  });
+});
+
+describe("migration: legacy instances.json -> projects registry", () => {
+  it("imports legacy project paths and removes the lockfile", async () => {
+    const { migrateLegacyInstances } = await import("../../utils/projects.js");
+    const legacyFile = join(process.env.ARTIFACT_DIR!, "instances.json");
+    writeFileSync(
+      legacyFile,
+      JSON.stringify({
+        deadbeef: { projectPath: projectC, projectId: "deadbeef", port: 7001, host: "localhost", pid: 1, startedAt: "" },
+        gone: { projectPath: join(tmpdir(), "artifact-e2e-deleted-proj"), projectId: "gone", port: 7002, host: "localhost", pid: 1, startedAt: "" },
+      }),
+    );
+
+    const imported = migrateLegacyInstances();
+    expect(imported.map((e) => e.projectPath)).toContain(projectC);
+    expect(imported).toHaveLength(1); // deleted dir is skipped
+    expect(existsSync(legacyFile)).toBe(false);
+
+    const list = (await (await fetch(`${baseUrl}/api/projects`)).json()) as {
+      projects: Array<{ projectPath: string }>;
+    };
+    expect(list.projects.map((p) => p.projectPath)).toContain(projectC);
   });
 });

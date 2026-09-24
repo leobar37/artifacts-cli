@@ -6,19 +6,16 @@ import {
   patchProjectConfig,
   type ProjectConfig,
 } from '../config/project-config.js';
+import type { ProjectEnv } from '../../types/artifact.js';
 
 interface PackageJson {
   name?: string;
 }
 
-function getProjectPath(): string {
-  return process.env.ARTIFACT_PROJECT_PATH || process.cwd();
-}
-
-const router = new Hono();
+const router = new Hono<ProjectEnv>();
 
 router.get('/', (c) => {
-  const projectPath = getProjectPath();
+  const projectPath = c.get('project').projectPath;
 
   try {
     const packageJsonPath = join(projectPath, 'package.json');
@@ -39,13 +36,13 @@ router.get('/', (c) => {
 });
 
 router.get('/config', (c) => {
-  const projectPath = getProjectPath();
+  const projectPath = c.get('project').projectPath;
   const config = readProjectConfig(projectPath);
   return c.json(config);
 });
 
 router.post('/config', async (c) => {
-  const projectPath = getProjectPath();
+  const projectPath = c.get('project').projectPath;
   const body = (await c.req.json()) as Partial<ProjectConfig>;
   const config = patchProjectConfig(projectPath, body);
   return c.json(config);

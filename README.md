@@ -38,21 +38,24 @@ artifact workflow, command reference, `index.html`/`content.tsx` conventions, an
 ## Usage
 
 ```bash
-# In a project with docs/artifacts/
-artifact start              # server + dashboard (ports 7000-7100)
-artifact start --build      # force a rebuild before starting
-artifact start --tailscale  # expose the dashboard on your Tailnet
-artifact list               # active instances
-artifact stop               # stop the current instance
-artifact stop --all         # stop all instances
+# One daemon serves all projects; each project gets its own URL
+# (`http://localhost:7000/p/<projectId>/`). Run `artifact init` first for new projects.
+artifact init               # scaffold docs/artifacts/ + .gitignore entry
+artifact start              # ensure daemon + register project + open dashboard
+artifact start --tailscale  # expose the daemon on your Tailnet
+artifact list               # daemon status + registered projects
+artifact stop               # stop the daemon
 artifact reload <slug>      # reload an artifact in the dashboard
 ```
 
 ## Commands
 
-- `artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build] [--dev]` — server (automatic port 7000-7100)
-- `artifact list` — list instances
-- `artifact stop [--all]` — stop server(s)
+- `artifact init` — scaffold `docs/artifacts/` and add it to `.gitignore`
+- `artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build] [--dev]` — ensure the daemon is running, register this project, open its dashboard
+- `artifact serve [-p <port>] [--host <host>] [--tailscale]` — run the daemon in the foreground (single server for all projects)
+- `artifact list` — daemon status + registered projects with per-project URLs
+- `artifact stop` — stop the daemon
+- `artifact unregister [projectId]` — remove a project from the registry (defaults to cwd)
 - `artifact reload <slug>` — reload an artifact
 - `artifact validate <slug>` — validate a `content.tsx`
 
@@ -64,17 +67,63 @@ artifact start --host 192.168.1.50
 ARTIFACT_HOST=my-host artifact start
 ```
 
-With a non-loopback `--host` the server listens on `0.0.0.0` and the lockfile stores
-the visible host (`artifact list` shows the correct URL).
+With a non-loopback `--host` the daemon listens on `0.0.0.0` and `daemon.json`
+stores the visible host (`artifact list` shows the correct URL).
+## Remote server setup
+
+One daemon, one port, one firewall rule. `artifact start` run from a project
+root registers that directory in `~/.artifact/projects.json` and ensures the
+daemon is running. On a remote host:
+
+```bash
+curl -fsSL https://bun.sh/install | bash   # if Bun is missing
+bun install -g @tarileo/artifacts-cli
+cd /srv/my-project
+artifact init                               # one time: docs/artifacts/ + .gitignore
+artifact start --host <server-ip> --no-open
+# or over your Tailnet: artifact start --tailscale --no-open
+```
+
+Register more projects with `artifact start` from each directory — they all
+share the daemon, each at `http://<host>:7000/p/<projectId>/`
+(`artifact list` prints every URL).
+
+Notes:
+
+- `start` spawns the daemon **detached**; `artifact serve` runs it in the
+  **foreground** (for `systemd`/`tmux`: `ExecStart=artifact serve --port 7000`).
+  SIGTERM shuts down cleanly and removes the daemon lock (the registry persists).
+- Open the port in the firewall, or put a reverse proxy in front for TLS.
+
+## Agent extension (omp)
+
+`@tarileo/artifact-omp` gives coding agents five tools
+(`artifact_create/read/update/versions/list`) plus `artifacts://` reads,
+so agents never hand-write `docs/artifacts/`.
+
+```bash
+omp plugin install @tarileo/artifact-omp   # from npm
+```
+
+From source instead:
+
+```bash
+git clone https://github.com/leobar37/artifacts-cli.git
+cd artifacts-cli
+bun install
+bun run --cwd packages/store build
+bun run --cwd packages/pi-extension build
+omp plugin link ./packages/pi-extension
+```
 
 ## Features
 
 - **React dashboard** with smooth navigation
 - **Isolated rendering** of artifacts via sandboxed iframe
 - **TSX compiled** on the fly with esbuild + validation
-- **Ports 7000-7100** assigned automatically
+- **Single daemon** — one server on port 7000 serves all projects
 - **Automatic build** — if `dist/` is missing, it compiles on start
-- **Multiple projects** — each project gets its own instance
+- **Multiple projects** — each project gets its own URL (`/p/<projectId>/`) with a project switcher
 - **Configurable host** — `--host` / `--tailscale` for LAN or Tailnet
 - **Dark theme**
 
@@ -98,7 +147,7 @@ bunx vitest run      # tests
 │   ├── server/      # Hono server + watcher + TSX compiler
 │   ├── dashboard/   # React app (Vite)
 │   ├── handlers/    # artifact types (generic/study/wireframe)
-│   └── utils/       # scanner, lockfile, ports, host/tailscale
+│   └── utils/       # scanner, registry, daemon, ports, host/tailscale
 ├── packages/
 │   ├── store/         # @tarileo/artifact-store: shared storage
 │   └── pi-extension/  # @tarileo/artifact-omp: agent extension
@@ -111,7 +160,8 @@ bunx vitest run      # tests
 ## Notes
 
 - The CLI automatically detects whether the dashboard needs to be compiled; use `--build` to force it.
-- Each project is identified by its absolute path; the lockfile lives in `~/.artifact/instances.json`.
+- Each project is identified by its absolute path and registered in `~/.artifact/projects.json`;
+  the running daemon is tracked in `~/.artifact/daemon.json`.
 - npm publishing via GitHub Actions with `NPM_TOKEN` (see `.github/workflows/publish.yml`).
 
 ## Storage and versions

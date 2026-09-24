@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { apiUrl, getProjectIdFromPath } from '../lib/project.js';
 
 interface ProjectInfo {
   name: string;
@@ -12,23 +13,23 @@ interface UseProjectReturn {
   error: Error | null;
 }
 
-async function fetchProjectInfo(): Promise<ProjectInfo> {
-  const r = await fetch('/api/project');
+async function fetchProjectInfo(projectId: string): Promise<ProjectInfo> {
+  const r = await fetch(apiUrl('/project', projectId));
   if (!r.ok) throw new Error(`Failed to fetch project info: ${r.statusText}`);
   return r.json();
 }
 
 export function useProject(): UseProjectReturn {
+  const projectId = getProjectIdFromPath() ?? '';
   const {
     data,
     isLoading: loading,
     error,
   } = useQuery({
-    queryKey: ['project'],
-    queryFn: fetchProjectInfo,
+    queryKey: ['project', projectId],
+    queryFn: () => fetchProjectInfo(projectId),
     staleTime: Infinity, // Project info doesn't change during runtime
   });
-
   return {
     name: data?.name ?? 'Loading...',
     path: data?.path ?? '',

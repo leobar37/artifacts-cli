@@ -2,10 +2,11 @@ import { Hono } from 'hono';
 import path from 'path';
 import { existsSync } from 'fs';
 import { scanArtifacts } from '../../utils/scanner.js';
+import { getProjectArtifactsPath } from '../../utils/project.js';
 import { registry } from '../../handlers/registry.js';
 import { CompilationService } from '../services/compiler.js';
 import { sseRegistry } from '../sse.js';
-import type { Artifact, ArtifactIndex } from '../../types/artifact.js';
+import type { Artifact, ArtifactIndex, ProjectEnv } from '../../types/artifact.js';
 import type { ArtifactType } from '../../handlers/interface.js';
 import { createLogger } from '../../utils/logger.js';
 
@@ -13,22 +14,27 @@ const log = createLogger('api');
 
 const compiler = new CompilationService();
 
-const router = new Hono();
+const router = new Hono<ProjectEnv>();
 
-let cache: { data: ArtifactIndex; timestamp: number } | null = null;
+const caches = new Map<string, { data: ArtifactIndex; timestamp: number }>();
 const CACHE_TTL = 30000;
 
-export function invalidateCache(): void {
-  cache = null;
+export function invalidateCache(projectId?: string): void {
+  if (projectId === undefined) {
+    caches.clear();
+    return;
+  }
+  caches.delete(projectId);
 }
 
-function getCachedArtifacts(artifactsPath: string): ArtifactIndex {
+function getCachedArtifacts(projectId: string, artifactsPath: string): ArtifactIndex {
   const now = Date.now();
-  if (cache && now - cache.timestamp < CACHE_TTL) {
-    return cache.data;
+  const cached = caches.get(projectId);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.data;
   }
   const data = scanArtifacts(artifactsPath);
-  cache = { data, timestamp: now };
+  caches.set(projectId, { data, timestamp: now });
   return data;
 }
 
@@ -36,9 +42,14 @@ function isValidType(type: string): type is ArtifactType {
   return ['generic', 'study', 'wireframe'].includes(type);
 }
 
+/** Slugs are kebab-case; reject anything that could escape the artifacts dir. */
+function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/i.test(slug);
+}
+
 router.get('/', (c) => {
-  const artifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH || './docs/artifacts';
-  const index = getCachedArtifacts(artifactsPath);
+  const project = c.get('project');
+  const index = getCachedArtifacts(project.projectId, getProjectArtifactsPath(project.projectPath));
   const type = c.req.query('type');
 
   if (type && typeof type === 'string') {
@@ -69,9 +80,12 @@ router.post('/validate', async (c) => {
 });
 
 router.get('/:slug/bundle', async (c) => {
+  const project = c.get('project');
   const slug = c.req.param('slug');
-  const artifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH || './docs/artifacts';
-  const filePath = path.join(artifactsPath, slug, 'content.tsx');
+  if (!isValidSlug(slug)) {
+    return c.json({ error: 'NOT_FOUND', message: 'Artifact not found' }, 404);
+  }
+  const filePath = path.join(getProjectArtifactsPath(project.projectPath), slug, 'content.tsx');
 
   if (!existsSync(filePath)) {
     return c.json({ error: 'NOT_FOUND', message: 'Artifact TSX source not found' }, 404);
@@ -90,9 +104,9 @@ router.get('/:slug/bundle', async (c) => {
 });
 
 router.get('/:slug', (c) => {
+  const project = c.get('project');
   const slug = c.req.param('slug');
-  const artifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH || './docs/artifacts';
-  const index = getCachedArtifacts(artifactsPath);
+  const index = getCachedArtifacts(project.projectId, getProjectArtifactsPath(project.projectPath));
   const artifact = index.artifacts.find((a: Artifact) => a.slug === slug);
 
   if (!artifact) {
@@ -114,11 +128,11 @@ router.get('/:slug', (c) => {
 
 // Trigger reload for a specific artifact (used by CLI after code edits)
 router.post('/:slug/reload', (c) => {
+  const project = c.get('project');
   const slug = c.req.param('slug');
-  const artifactsPath = process.env.ARTIFACT_ARTIFACTS_PATH || './docs/artifacts';
 
   // Verify the artifact exists
-  const index = getCachedArtifacts(artifactsPath);
+  const index = getCachedArtifacts(project.projectId, getProjectArtifactsPath(project.projectPath));
   const artifact = index.artifacts.find((a: Artifact) => a.slug === slug);
 
   if (!artifact) {
@@ -126,10 +140,10 @@ router.post('/:slug/reload', (c) => {
   }
 
   // Invalidate cache to force re-scan
-  invalidateCache();
+  invalidateCache(project.projectId);
 
-  // Broadcast update event to all connected clients
-  sseRegistry.broadcast('artifacts:update', {
+  // Broadcast update event to this project's viewers
+  sseRegistry.broadcastTo(project.projectId, 'artifacts:update', {
     slug,
     lastScanAt: new Date().toISOString(),
   });

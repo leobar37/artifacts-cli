@@ -1,6 +1,6 @@
 ---
 name: artifacts-cli
-description: Manage and preview HTML artifacts with the artifact CLI (start, list, stop, reload, --host, --tailscale). Use when working with docs/artifacts, previewing generated HTML/TSX artifacts in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
+description: Manage and preview HTML artifacts with the artifact CLI (single daemon on port 7000, per-project /p/<id> dashboard URLs). Use when working with docs/artifacts, previewing generated HTML/TSX artifacts in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
 ---
 
 # Artifacts CLI
@@ -17,14 +17,17 @@ bun install -g @tarileo/artifacts-cli
 
 ## Workflow
 
-1. Every artifact lives in `docs/artifacts/<slug>/` with `index.html`
+1. New project? Run `artifact init` once: it scaffolds `docs/artifacts/`
+   and adds it to `.gitignore`.
+2. Every artifact lives in `docs/artifacts/<slug>/` with `index.html`
    (static) or `content.tsx` (compiled to a bundle on the fly).
-2. Start the server in the project root:
+3. Ensure the daemon and open this project's dashboard:
    ```bash
    artifact start
    ```
-   The dashboard opens automatically (ports 7000-7100, first free wins).
-3. Pick an artifact in the sidebar; it renders isolated in the viewer.
+   This starts the shared daemon if needed (port 7000), registers the project,
+   and opens its dashboard at `/p/<projectId>/`.
+4. Pick an artifact in the sidebar; it renders isolated in the viewer.
    Edits to `index.html`/`content.tsx` hot-reload via file watcher + SSE.
 
 ## Commands
@@ -33,9 +36,12 @@ See [commands reference](references/commands.md) for the full flag list.
 The essentials:
 
 ```bash
+artifact init
 artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]
+artifact serve [-p <port>] [--host <host>] [--tailscale]   # foreground daemon (systemd)
 artifact list
-artifact stop [--all]
+artifact stop
+artifact unregister [projectId]
 artifact reload <slug>
 ```
 
@@ -55,14 +61,15 @@ artifact start --host 192.168.1.50
 ARTIFACT_HOST=my-host artifact start
 ```
 
-Non-loopback hosts bind `0.0.0.0`; the advertised host is stored in the
-instance lockfile so `artifact list` prints the right URL.
+Non-loopback hosts bind `0.0.0.0`; the advertised host is stored in
+`~/.artifact/daemon.json` so `artifact list` prints the right URL.
 
 ## Troubleshooting
 
-- `No server running ... Start with: artifact start` → the lockfile
-  (`~/.artifact/instances.json`) is stale or the server died; just `start` again.
-- Port in use → the server auto-retries the next 10 ports.
+- `No daemon running ... Start with: artifact start` → the daemon lock
+  (`~/.artifact/daemon.json`) is stale or the daemon died; just `start` again.
+- Port in use → the daemon auto-retries the next 10 ports on first boot, then
+  pins the port in `daemon.json`.
 - Dashboard shows stale list → the API caches the scan for 30s; file changes
   invalidate it via the watcher.
 - `--tailscale` falls back to localhost when `tailscale ip -4` fails
