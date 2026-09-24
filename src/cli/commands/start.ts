@@ -8,6 +8,7 @@ import {
   getDaemon,
   isDaemonAlive,
   migrateLegacyInstances,
+  notifyDaemon,
   registerProject,
   removeDaemon,
   setDaemon,
@@ -143,15 +144,7 @@ export function startCommand(program: Command) {
         const url = `http://${host}:${existing.port}/p/${entry.projectId}/`;
         // The daemon reads the registry per request, but its file watcher only
         // learns new projects via POST: notify it (best-effort, file is already written).
-        try {
-          await fetch(`http://127.0.0.1:${existing.port}/api/projects`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: cwd }),
-          });
-        } catch {
-          // daemon will pick it up on next restart
-        }
+        await notifyDaemon(cwd);
         log.info(`Daemon already running at http://${host}:${existing.port}`);
         log.info(`Project ${chalk.bold(entry.name)}: ${chalk.cyan(url)}`);
         if (options.open) {

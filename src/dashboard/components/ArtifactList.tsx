@@ -17,7 +17,7 @@ export function ArtifactList({ artifacts, selectedSlug, onSelect }: ArtifactList
         </div>
         <h3 className="mb-2 text-base font-medium text-text-primary">No artifacts found</h3>
         <p className="text-sm text-text-muted">
-          Create artifacts using the <code className="rounded bg-panel-raised px-1.5 py-0.5 text-text-secondary">/artifact</code> command
+          Scaffold one with <code className="rounded bg-panel-raised px-1.5 py-0.5 text-text-secondary">artifact create &lt;slug&gt;</code>
         </p>
       </div>
     );

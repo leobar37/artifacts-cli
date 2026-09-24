@@ -23,6 +23,7 @@
       <h2>Usage</h2>
       <pre><code># One daemon serves all projects (port 7000)
 artifact init                 # once per project
+artifact create &lt;slug&gt;      # scaffold docs/artifacts/&lt;slug&gt;/
 artifact start               # daemon + dashboard at /p/&lt;id&gt;/
 artifact start --tailscale   # expose on your Tailnet
 artifact list / artifact stop

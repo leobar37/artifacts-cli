@@ -40,17 +40,19 @@ artifact workflow, command reference, `index.html`/`content.tsx` conventions, an
 ```bash
 # One daemon serves all projects; each project gets its own URL
 # (`http://localhost:7000/p/<projectId>/`). Run `artifact init` first for new projects.
-artifact init               # scaffold docs/artifacts/ + .gitignore entry
-artifact start              # ensure daemon + register project + open dashboard
-artifact start --tailscale  # expose the daemon on your Tailnet
-artifact list               # daemon status + registered projects
-artifact stop               # stop the daemon
-artifact reload <slug>      # reload an artifact in the dashboard
+artifact init                           # scaffold docs/artifacts/ + .gitignore entry
+artifact create <slug>                  # scaffold docs/artifacts/<slug>/index.html
+artifact create <slug> --tsx            # or a React content.tsx instead
+artifact start                          # ensure daemon + register project + open dashboard
+artifact list                           # daemon status + registered projects
+artifact stop                           # stop the daemon
+artifact reload <slug>                  # reload an artifact in the dashboard
 ```
 
 ## Commands
 
 - `artifact init` — scaffold `docs/artifacts/` and add it to `.gitignore`
+- `artifact create <slug> [-t <title>] [--type <type>] [--tsx] [--force]` — scaffold `index.html` (or `content.tsx` with `--tsx`)
 - `artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build] [--dev]` — ensure the daemon is running, register this project, open its dashboard
 - `artifact serve [-p <port>] [--host <host>] [--tailscale]` — run the daemon in the foreground (single server for all projects)
 - `artifact list` — daemon status + registered projects with per-project URLs

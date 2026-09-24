@@ -9,6 +9,19 @@ Scaffold `docs/artifacts/` for the current project and add it to
 `.gitignore` (working copy; the store is the source of truth). Run once
 per project before creating artifacts.
 
+## `artifact create <slug>`
+
+Scaffold `docs/artifacts/<slug>/` with an `index.html` (or `content.tsx` with
+`--tsx`) pre-filled with `<title>` and the `artifact-type` meta tag. Registers
+the project and notifies the live daemon so the artifact shows up right away.
+
+| Flag | Description |
+|------|-------------|
+| `-t, --title <title>` | Human-readable title (defaults to the slug) |
+| `--type <type>` | `generic` (default), `study`, or `wireframe` |
+| `--tsx` | Scaffold `content.tsx` (React) instead of `index.html` |
+| `--force` | Overwrite the scaffold file if it already exists |
+
 ## `artifact start`
 
 Ensure the daemon is running, register the current project, open its dashboard.

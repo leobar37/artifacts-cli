@@ -130,6 +130,27 @@ export function isDaemonAlive(info: DaemonInfo): Promise<boolean> {
   });
 }
 
+/**
+ * Tell the live daemon about a (possibly new) project so its file watcher
+ * picks it up. Best-effort: the registry file is the source of truth and the
+ * daemon reads it on every request; a restart covers a missed notify.
+ * Returns true when the daemon acknowledged.
+ */
+export async function notifyDaemon(cwd: string): Promise<boolean> {
+  const daemon = getDaemon();
+  if (!daemon || !(await isDaemonAlive(daemon))) return false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${daemon.port}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: cwd }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // --- Legacy migration --------------------------------------------------------
 
 interface LegacyInstance {

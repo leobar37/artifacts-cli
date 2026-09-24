@@ -37,6 +37,7 @@ The essentials:
 
 ```bash
 artifact init
+artifact create <slug> [-t <title>] [--type <type>] [--tsx]   # scaffold index.html (or content.tsx)
 artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]
 artifact serve [-p <port>] [--host <host>] [--tailscale]   # foreground daemon (systemd)
 artifact list
