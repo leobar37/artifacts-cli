@@ -77,7 +77,6 @@ export function watchProject(projectId: string, artifactsPath: string): void {
   ensureWatcher();
   watcher!.add([
     path.join(artifactsPath, '**', 'index.html'),
-    path.join(artifactsPath, '**', 'content.tsx'),
   ]);
 }
 
@@ -87,7 +86,6 @@ export function unwatchProject(projectId: string): void {
   if (!base || !watcher) return;
   watcher.unwatch([
     path.join(base, '**', 'index.html'),
-    path.join(base, '**', 'content.tsx'),
   ]);
 }
 

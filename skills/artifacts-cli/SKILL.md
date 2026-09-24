@@ -1,12 +1,12 @@
 ---
 name: artifacts-cli
-description: Manage and preview HTML artifacts with the artifact CLI (single daemon on port 7000, per-project /p/<id> dashboard URLs). Use when working with docs/artifacts, previewing generated HTML/TSX artifacts in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
+description: Manage and preview HTML artifacts with the artifact CLI (single daemon on port 7000, per-project /p/<id> dashboard URLs). Use when working with docs/artifacts, previewing generated HTML artifacts in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
 ---
 
 # Artifacts CLI
 
 CLI + dashboard for managing and previewing HTML artifacts
-(`docs/artifacts/<slug>/index.html` or `content.tsx`).
+(`docs/artifacts/<slug>/index.html`).
 Published as `@tarileo/artifacts-cli`, binary `artifact`.
 
 ## Install
@@ -19,8 +19,8 @@ bun install -g @tarileo/artifacts-cli
 
 1. New project? Run `artifact init` once: it scaffolds `docs/artifacts/`
    and adds it to `.gitignore`.
-2. Every artifact lives in `docs/artifacts/<slug>/` with `index.html`
-   (static) or `content.tsx` (compiled to a bundle on the fly).
+2. Every artifact lives in `docs/artifacts/<slug>/` with a standalone `index.html`
+   (Tailwind via CDN, Alpine for interactivity).
 3. Ensure the daemon and open this project's dashboard:
    ```bash
    artifact start
@@ -28,7 +28,7 @@ bun install -g @tarileo/artifacts-cli
    This starts the shared daemon if needed (port 7000), registers the project,
    and opens its dashboard at `/p/<projectId>/`.
 4. Pick an artifact in the sidebar; it renders isolated in the viewer.
-   Edits to `index.html`/`content.tsx` hot-reload via file watcher + SSE.
+   Edits to `index.html` hot-reload via file watcher + SSE.
 
 ## Commands
 
@@ -37,7 +37,7 @@ The essentials:
 
 ```bash
 artifact init
-artifact create <slug> [-t <title>] [--type <type>] [--tsx]   # scaffold index.html (or content.tsx)
+artifact create <slug> [-t <title>] [--type <type>]   # scaffold index.html
 artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]
 artifact serve [-p <port>] [--host <host>] [--tailscale]   # foreground daemon (systemd)
 artifact list
@@ -48,8 +48,7 @@ artifact reload <slug>
 
 ## Artifact conventions
 
-- Directory per artifact: `docs/artifacts/<slug>/`.
-- Format: `index.html` (static) or `content.tsx` (React, bundled with esbuild).
+- Directory per artifact: `docs/artifacts/<slug>/` with `index.html` (standalone HTML).
 - Type detection: `<meta name="artifact-type" content="study|wireframe|generic">`,
   with heuristics fallback (`x-data` Alpine markers, `wireframe`/`mockup` keywords).
 - `<title>` becomes the sidebar label; newest-modified sorts first.

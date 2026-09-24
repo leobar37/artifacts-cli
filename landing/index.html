@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Artifacts CLI — HTML artifact preview</title>
-  <meta name="description" content="CLI + dashboard to manage and preview HTML/TSX artifacts. Install, run artifact start, done." />
+  <meta name="description" content="CLI + dashboard to manage and preview HTML artifacts. Install, run artifact start, done." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -28,7 +28,7 @@ artifact start               # daemon + dashboard at /p/&lt;id&gt;/
 artifact start --tailscale   # expose on your Tailnet
 artifact list / artifact stop
 artifact reload &lt;slug&gt;</code></pre>
-      <p>Each artifact lives in <code>docs/artifacts/&lt;slug&gt;/</code> as <code>index.html</code> or <code>content.tsx</code>. The dashboard renders them isolated and reloads on save.</p>
+      <p>Each artifact lives in <code>docs/artifacts/&lt;slug&gt;/</code> as a standalone <code>index.html</code>. The dashboard renders them isolated and reloads on save.</p>
     </section>
 
     <section>

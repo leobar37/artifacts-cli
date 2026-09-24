@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Artifact } from '../../types/artifact.js';
-import { ArtifactRenderer } from './ArtifactRenderer.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
 import { projectBase } from '../lib/project.js';
 import { Maximize2, Minimize2, Box } from 'lucide-react';
@@ -9,10 +8,6 @@ interface ArtifactViewerProps {
   artifact: Artifact | null;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
-}
-
-function getArtifactFormat(artifact: Artifact): 'tsx' | 'html' {
-  return artifact.format || 'html';
 }
 
 export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: ArtifactViewerProps) {
@@ -73,8 +68,6 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
     );
   }
 
-  const format = getArtifactFormat(artifact);
-
   return (
     <div className="flex h-full w-full flex-1 flex-col bg-bg relative">
       {/* Floating Maximize Button */}
@@ -96,7 +89,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
 
       {/* Content */}
       <div className="relative flex-1 flex flex-col overflow-hidden bg-bg min-h-0" style={{ userSelect: 'text' }}>
-        {isLoading && format === 'html' && (
+        {isLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg/50">
             <div className="text-center rounded-xl bg-panel p-4 border border-line">
               <div className="mb-3 mx-auto h-6 w-6 animate-spin rounded-full border-2 border-line border-t-accent"></div>
@@ -105,34 +98,18 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
           </div>
         )}
 
-        {format === 'tsx' ? (
-          <ArtifactRenderer
-            key={`${artifact.slug}-${refreshKey}`}
-            slug={artifact.slug}
-            version={refreshKey}
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center">
-                  <div className="mb-3 mx-auto h-6 w-6 animate-spin rounded-full border-2 border-line border-t-accent"></div>
-                  <p className="text-xs text-text-muted">Compiling React artifact...</p>
-                </div>
-              </div>
-            }
-          />
-        ) : (
-          <iframe
-            ref={iframeRef}
-            src={`${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`}
-            sandbox="allow-scripts allow-same-origin allow-popups"
-            className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-            title={artifact.title}
-            onLoad={() => {
-              stretchHtmlArtifact();
-              setIsLoading(false);
-            }}
-            onError={() => setIsLoading(false)}
-          />
-        )}
+        <iframe
+          ref={iframeRef}
+          src={`${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`}
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          title={artifact.title}
+          onLoad={() => {
+            stretchHtmlArtifact();
+            setIsLoading(false);
+          }}
+          onError={() => setIsLoading(false)}
+        />
       </div>
     </div>
   );

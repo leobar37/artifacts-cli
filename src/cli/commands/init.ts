@@ -44,7 +44,7 @@ export function initCommand(program: Command) {
 
       log.info('');
       log.info(`Project ${chalk.bold(projectName)} ready. Next steps:`);
-      log.info(`  1. Create an artifact: docs/artifacts/<slug>/index.html (or content.tsx),`);
+      log.info(`  1. Create an artifact: docs/artifacts/<slug>/index.html,`);
       log.info(`     or from your agent with the artifact_create tool (omp extension).`);
       log.info(`  2. Preview it: ${chalk.cyan('artifact start')}`);
     });

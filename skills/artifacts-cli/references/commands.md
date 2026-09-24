@@ -11,16 +11,15 @@ per project before creating artifacts.
 
 ## `artifact create <slug>`
 
-Scaffold `docs/artifacts/<slug>/` with an `index.html` (or `content.tsx` with
-`--tsx`) pre-filled with `<title>` and the `artifact-type` meta tag. Registers
+Scaffold `docs/artifacts/<slug>/` with a standalone `index.html` pre-filled
+with `<title>` and the `artifact-type` meta tag. Registers
 the project and notifies the live daemon so the artifact shows up right away.
 
 | Flag | Description |
 |------|-------------|
 | `-t, --title <title>` | Human-readable title (defaults to the slug) |
 | `--type <type>` | `generic` (default), `study`, or `wireframe` |
-| `--tsx` | Scaffold `content.tsx` (React) instead of `index.html` |
-| `--force` | Overwrite the scaffold file if it already exists |
+| `--force` | Overwrite `index.html` if it already exists |
 
 ## `artifact start`
 
@@ -72,6 +71,3 @@ POST `/p/<projectId>/api/artifacts/<slug>/reload` to the running daemon so
 the dashboard re-fetches that artifact (project resolves from cwd, must be
 registered).
 
-## `artifact validate <slug>`
-
-Validate a `content.tsx` artifact locally (no daemon needed).

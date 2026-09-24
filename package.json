@@ -50,7 +50,6 @@
     "chokidar": "^5.0.0",
     "commander": "^12.0.0",
     "diff": "^8.0.2",
-    "esbuild": "0.27.7",
     "express": "^5.1.0",
     "hono": "^4.12.12",
     "lucide-react": "^1.8.0",

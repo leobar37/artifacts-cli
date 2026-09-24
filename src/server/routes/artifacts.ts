@@ -1,10 +1,7 @@
 import { Hono } from 'hono';
-import path from 'path';
-import { existsSync } from 'fs';
 import { scanArtifacts } from '../../utils/scanner.js';
 import { getProjectArtifactsPath } from '../../utils/project.js';
 import { registry } from '../../handlers/registry.js';
-import { CompilationService } from '../services/compiler.js';
 import { sseRegistry } from '../sse.js';
 import type { Artifact, ArtifactIndex, ProjectEnv } from '../../types/artifact.js';
 import type { ArtifactType } from '../../handlers/interface.js';
@@ -12,7 +9,6 @@ import { createLogger } from '../../utils/logger.js';
 
 const log = createLogger('api');
 
-const compiler = new CompilationService();
 
 const router = new Hono<ProjectEnv>();
 
@@ -42,10 +38,6 @@ function isValidType(type: string): type is ArtifactType {
   return ['generic', 'study', 'wireframe'].includes(type);
 }
 
-/** Slugs are kebab-case; reject anything that could escape the artifacts dir. */
-function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9][a-z0-9-]*$/i.test(slug);
-}
 
 router.get('/', (c) => {
   const project = c.get('project');
@@ -69,39 +61,6 @@ router.get('/', (c) => {
   return c.json(index);
 });
 
-router.post('/validate', async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body || typeof body.code !== 'string') {
-    return c.json({ error: 'Request body must include { code: string }' }, 400);
-  }
-
-  const result = await compiler.validate(body.code);
-  return c.json(result);
-});
-
-router.get('/:slug/bundle', async (c) => {
-  const project = c.get('project');
-  const slug = c.req.param('slug');
-  if (!isValidSlug(slug)) {
-    return c.json({ error: 'NOT_FOUND', message: 'Artifact not found' }, 404);
-  }
-  const filePath = path.join(getProjectArtifactsPath(project.projectPath), slug, 'content.tsx');
-
-  if (!existsSync(filePath)) {
-    return c.json({ error: 'NOT_FOUND', message: 'Artifact TSX source not found' }, 404);
-  }
-
-  const result = await compiler.compile({ filePath });
-
-  if (!result.success) {
-    return c.json(result, 400);
-  }
-
-  return c.text(result.code, 200, {
-    'Content-Type': 'application/javascript',
-    'Cache-Control': 'no-cache',
-  });
-});
 
 router.get('/:slug', (c) => {
   const project = c.get('project');

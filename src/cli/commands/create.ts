@@ -23,15 +23,6 @@ export function humanizeSlug(slug: string): string {
     .join(' ');
 }
 
-export function componentName(slug: string): string {
-  const name = slug
-    .split('-')
-    .filter(Boolean)
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join('');
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && name.length > 0 ? name : 'Artifact';
-}
-
 export function buildHtmlTemplate(title: string, type: ArtifactKind): string {
   return `<!doctype html>
 <html lang="en">
@@ -48,26 +39,14 @@ export function buildHtmlTemplate(title: string, type: ArtifactKind): string {
 `;
 }
 
-export function buildTsxTemplate(title: string, name: string): string {
-  return `export default function ${name}() {
-  return (
-    <div style={{ fontFamily: "system-ui", padding: 24 }}>
-      <h1>${title}</h1>
-    </div>
-  );
-}
-`;
-}
-
 export function createCommand(program: Command) {
   program
     .command('create')
-    .description('Scaffold a new artifact (index.html or content.tsx)')
+    .description('Scaffold a new HTML artifact')
     .argument('<slug>', 'kebab-case id, e.g. auth-summary')
     .option('-t, --title <title>', 'Human-readable title (defaults to the slug)')
     .option('--type <type>', 'Artifact type: generic|study|wireframe (default generic)')
-    .option('--tsx', 'Scaffold content.tsx (React) instead of index.html')
-    .option('--force', 'Overwrite the scaffold file if it already exists')
+    .option('--force', 'Overwrite index.html if it already exists')
     .action(async (slug: string, options) => {
       if (!isValidSlug(slug)) {
         log.error(`✗ Invalid slug "${slug}". Use kebab-case: lowercase letters, numbers, hyphens.`);
@@ -82,9 +61,8 @@ export function createCommand(program: Command) {
 
       const cwd = process.cwd();
       const title = options.title ?? humanizeSlug(slug);
-      const filename = options.tsx ? 'content.tsx' : 'index.html';
       const dir = path.join(getProjectArtifactsPath(cwd), slug);
-      const file = path.join(dir, filename);
+      const file = path.join(dir, 'index.html');
 
       if (existsSync(file) && !options.force) {
         log.error(`✗ ${path.relative(cwd, file)} already exists. Use --force to overwrite.`);
@@ -92,18 +70,12 @@ export function createCommand(program: Command) {
       }
 
       mkdirSync(dir, { recursive: true });
-      const content = options.tsx
-        ? buildTsxTemplate(title, componentName(slug))
-        : buildHtmlTemplate(title, type as ArtifactKind);
-      writeFileSync(file, content);
+      writeFileSync(file, buildHtmlTemplate(title, type as ArtifactKind));
 
       registerProject(cwd);
       await notifyDaemon(cwd);
 
       log.info(`✓ Created ${chalk.cyan(path.relative(cwd, file))}`);
-      if (options.tsx) {
-        log.info(`  Validate it: ${chalk.cyan(`artifact validate ${slug}`)}`);
-      }
       log.info(`  Preview it: ${chalk.cyan('artifact start')}`);
     });
 }

@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   buildHtmlTemplate,
-  buildTsxTemplate,
-  componentName,
   humanizeSlug,
   isValidSlug,
 } from "../create.js";
@@ -22,20 +20,9 @@ describe("artifact create templates", () => {
     expect(humanizeSlug("a")).toBe("A");
   });
 
-  it("derives a valid component name", () => {
-    expect(componentName("auth-summary")).toBe("AuthSummary");
-    expect(componentName("a")).toBe("A");
-  });
-
   it("scaffolds html with title and type meta", () => {
     const html = buildHtmlTemplate("Auth Summary", "study");
     expect(html).toContain("<title>Auth Summary</title>");
     expect(html).toContain('name="artifact-type" content="study"');
-  });
-
-  it("scaffolds a default-exported tsx component", () => {
-    const tsx = buildTsxTemplate("Auth Summary", "AuthSummary");
-    expect(tsx).toContain("export default function AuthSummary()");
-    expect(tsx).toContain("<h1>Auth Summary</h1>");
   });
 });

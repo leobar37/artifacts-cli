@@ -111,7 +111,7 @@ the client-proprietary `allowed-tools`/`model`):
 ```markdown
 ---
 name: artifact-cli
-description: Manage and preview HTML artifacts with the artifact CLI (start, list, stop, reload, --tailscale). Use when working with docs/artifacts, previewing generated HTML/TSX artifacts, or exposing the artifact dashboard over Tailscale.
+description: Manage and preview HTML artifacts with the artifact CLI (start, list, stop, reload, --tailscale). Use when working with docs/artifacts, previewing generated HTML artifacts, or exposing the artifact dashboard over Tailscale.
 ---
 
 # Artifact CLI
@@ -120,8 +120,8 @@ description: Manage and preview HTML artifacts with the artifact CLI (start, lis
 
 Spec rules: `name` ≤ 64 chars, lowercase/numbers/hyphens, no `anthropic`/`claude`;
 `description` ≤ 1024 chars and is the discovery signal (what it does + when to use it).
-A **procedural** skill works best: install the CLI, `docs/artifacts/` init,
-commands with flags, `index.html`/`content.tsx` conventions, troubleshooting.
+Conviene una skill **procedimental**: instalar la CLI, init de `docs/artifacts/`,
+comandos con flags, convención `index.html`, troubleshooting.
 
 ### 2.2 How it shows up on skills.sh
 
