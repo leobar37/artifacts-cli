@@ -8,7 +8,10 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  // Absolute base: the dashboard is served from / and /p/<projectId>/,
+  // so assets must resolve from the root in both cases. A relative base
+  // ("./") breaks /p/<id>/ pages (assets 404 into the SPA fallback as HTML).
+  base: "/",
   root: path.resolve(__dirname, "src/dashboard"),
   build: {
     outDir: path.resolve(__dirname, "dist/dashboard"),

@@ -75,6 +75,9 @@ Non-loopback hosts bind `0.0.0.0`; the advertised host is stored in
   pins the port in `daemon.json`.
 - Dashboard shows stale list → the API caches the scan for 30s; file changes
   invalidate it via the watcher.
+- Blank white dashboard page → the installed CLI is older than 0.2.1: project
+  URLs (`/p/<id>/`) need absolute asset paths. Upgrade (`bun install -g
+  @tarileo/artifacts-cli@latest`) and restart the daemon.
 - `--tailscale` falls back to localhost when `tailscale ip -4` fails
   (Tailscale not installed or logged out).
 
