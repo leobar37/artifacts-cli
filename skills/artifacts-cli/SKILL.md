@@ -29,6 +29,8 @@ bun install -g @tarileo/artifacts-cli
    and opens its dashboard at `/p/<projectId>/`.
 4. Pick an artifact in the sidebar; it renders isolated in the viewer.
    Edits to `index.html` hot-reload via file watcher + SSE.
+5. Need one link with everything? The daemon root (`/`) shows all artifacts
+   grouped by project. `artifact url` prints that link.
 
 ## Commands
 
@@ -44,6 +46,7 @@ artifact list
 artifact stop
 artifact unregister [projectId]
 artifact reload <slug>
+artifact url [projectId]   # print the dashboard link (overview, or one project)
 ```
 
 ## Artifact conventions

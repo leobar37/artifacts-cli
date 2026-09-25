@@ -83,6 +83,18 @@ describe("daemon: one server, many projects", () => {
     expect(bodyB.artifact.title).toBe("Proj B");
   });
 
+  it("groups every project's artifacts in /api/overview", async () => {
+    const res = await fetch(`${baseUrl}/api/overview`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      groups: Array<{ project: { projectId: string }; totalCount: number; artifacts: Array<{ slug: string; title: string }> }>;
+    };
+    const byId = Object.fromEntries(body.groups.map((g) => [g.project.projectId, g]));
+    expect(byId[idA].totalCount).toBe(1);
+    expect(byId[idA].artifacts[0].title).toBe("Proj A");
+    expect(byId[idB].artifacts[0].title).toBe("Proj B");
+  });
+
   it("serves each project's html through its symlink", async () => {
     const resA = await fetch(`${baseUrl}/p/${idA}/artifacts/demo/index.html`);
     expect(resA.status).toBe(200);

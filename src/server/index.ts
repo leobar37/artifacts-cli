@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { existsSync, readFileSync, statSync } from "fs";
 import path from "path";
 import healthRouter from "./routes/health.js";
-import artifactsRouter, { invalidateCache } from "./routes/artifacts.js";
+import artifactsRouter, { getCachedArtifacts, invalidateCache } from "./routes/artifacts.js";
 import projectRouter from "./routes/project.js";
 import { registry } from "../handlers/registry.js";
 import { sseRegistry } from "./sse.js";
@@ -82,6 +82,15 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   app.get("/api/projects", (c) => {
     return c.json({ projects: listProjects() });
+  });
+
+  // All artifacts of every registered project, grouped for the overview page.
+  app.get("/api/overview", (c) => {
+    const groups = listProjects().map((project) => {
+      const index = getCachedArtifacts(project.projectId, getProjectArtifactsPath(project.projectPath));
+      return { project, totalCount: index.totalCount, artifacts: index.artifacts };
+    });
+    return c.json({ groups });
   });
 
   app.post("/api/projects", async (c) => {

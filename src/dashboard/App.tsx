@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Artifact, ProjectEntry } from "../types/artifact.js";
 import { useArtifacts } from "./hooks/useArtifacts.js";
 import { useSelectedArtifact } from "./hooks/useSelectedArtifact.js";
@@ -9,6 +9,7 @@ import { Header } from "./components/Header.js";
 import { ArtifactList } from "./components/ArtifactList.js";
 import { ArtifactViewer } from "./components/ArtifactViewer.js";
 import { ProjectPicker } from "./components/ProjectPicker.js";
+import { Overview } from "./components/Overview.js";
 import { ChevronRight, ChevronLeft, X, AlertCircle } from "lucide-react";
 
 type ArtifactType = "generic" | "study" | "wireframe";
@@ -26,7 +27,11 @@ export default function App() {
     );
   }
 
-  const project = projectId ? projects.find((p) => p.projectId === projectId) : undefined;
+  // No project in the URL: show every artifact of every project.
+  if (!projectId) {
+    return <Overview />;
+  }
+  const project = projects.find((p) => p.projectId === projectId);
   if (!project) {
     return <ProjectPicker projects={projects} unknownId={projectId} />;
   }
@@ -47,6 +52,18 @@ function ProjectDashboard({ project, projects }: { project: ProjectEntry; projec
   const handleSelectArtifact = (artifact: Artifact | null) => {
     selectArtifact(artifact);
   };
+
+  // Deep link from the overview: /p/<id>/?select=<slug>
+  useEffect(() => {
+    if (selectedArtifact || artifacts.length === 0) return;
+    const slug = new URLSearchParams(window.location.search).get("select");
+    if (!slug) return;
+    const found = artifacts.find((a) => a.slug === slug);
+    if (found) {
+      selectArtifact(found);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [artifacts, selectedArtifact, selectArtifact]);
 
   if (error) {
     return (

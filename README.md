@@ -44,22 +44,22 @@ artifact init                           # scaffold docs/artifacts/ + .gitignore 
 artifact create <slug>                  # scaffold docs/artifacts/<slug>/index.html
 artifact start                          # ensure daemon + register project + open dashboard
 artifact list                           # daemon status + registered projects
+artifact url                            # link to the all-artifacts overview
+artifact url <projectId>                # link to one project's dashboard
 artifact stop                           # stop the daemon
 artifact reload <slug>                  # reload an artifact in the dashboard
 ```
-
 ## Commands
 
 - `artifact init` — scaffold `docs/artifacts/` and add it to `.gitignore`
 - `artifact create <slug> [-t <title>] [--type <type>] [--force]` — scaffold `index.html`
 - `artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build] [--dev]` — ensure the daemon is running, register this project, open its dashboard
-- `artifact serve [-p <port>] [--host <host>] [--tailscale]` — run the daemon in the foreground (single server for all projects)
 - `artifact list` — daemon status + registered projects with per-project URLs
+- `artifact url [projectId]` — print the dashboard link: the all-artifacts overview, or one project
 - `artifact stop` — stop the daemon
+- `artifact serve [-p <port>] [--host <host>] [--tailscale]` — run the daemon in the foreground (single server for all projects)
 - `artifact unregister [projectId]` — remove a project from the registry (defaults to cwd)
 - `artifact reload <slug>` — reload an artifact
-
-## Network / Tailscale exposure
 
 ```bash
 artifact start --host tailscale  # or: artifact start --tailscale

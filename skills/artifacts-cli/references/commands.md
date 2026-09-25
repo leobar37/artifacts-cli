@@ -71,3 +71,9 @@ POST `/p/<projectId>/api/artifacts/<slug>/reload` to the running daemon so
 the dashboard re-fetches that artifact (project resolves from cwd, must be
 registered).
 
+## `artifact url [projectId]`
+
+Print the dashboard link. Without args: the daemon root (`/`), which shows
+every artifact of every registered project grouped by project — the one link
+to share. With a project id: that project's dashboard (`/p/<id>/`).
+

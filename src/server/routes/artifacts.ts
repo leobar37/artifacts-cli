@@ -23,7 +23,7 @@ export function invalidateCache(projectId?: string): void {
   caches.delete(projectId);
 }
 
-function getCachedArtifacts(projectId: string, artifactsPath: string): ArtifactIndex {
+export function getCachedArtifacts(projectId: string, artifactsPath: string): ArtifactIndex {
   const now = Date.now();
   const cached = caches.get(projectId);
   if (cached && now - cached.timestamp < CACHE_TTL) {
