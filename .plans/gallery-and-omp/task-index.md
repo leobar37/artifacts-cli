@@ -31,3 +31,11 @@ Orden: **A → B**. A cierra código local (sin dependencias externas). B depend
 - [ ] Aceptación A completa (3 checks).
 - [ ] Aceptación B completa por VPS (FR-B3).
 - [ ] `git status` limpio o con commits identificados; nada a medias.
+
+## Ejecución (2026-09-25)
+- Track A: commit `b43c3d0` (overview + `artifact url` + docs).
+- omp `0.1.3` publicado (`omp-v0.1.3`, workflow verde; npm tarda minutos en replicar: verificar con `--prefer-online`).
+- ubuntu-dev: `omp plugin install @tarileo/artifact-omp@0.1.3` ✅, e2e con agente (`artifact_create` → symlink + store) ✅, dashboard ✅, limpio (stop + unregister del proyecto de prueba).
+- vultr-dev: idem ✅.
+- Rollback (verificado en `omp plugin --help`, ACTION list): `omp plugin uninstall @tarileo/artifact-omp`.
+- Nota: en ubuntu-dev se detuvo el daemon al cerrar el smoke y quedó un proyecto preexistente (`control-de-caja`, importado por la migración) registrado pero sin daemon: reactivar con `artifact start` si se usaba.
