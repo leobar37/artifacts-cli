@@ -22,9 +22,9 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "bun --watch src/server/index.ts",
-    "build": "bun run build:dashboard && bun run build:server",
+    "build": "bun run --cwd packages/store build && bun run build:dashboard && bun run build:server",
     "build:dashboard": "tsc && vite build",
-    "build:server": "tsc -p tsconfig.node.json && chmod +x dist/cli/index.js",
+    "build:server": "rm -f tsconfig.node.tsbuildinfo && tsc -p tsconfig.node.json && chmod +x dist/cli/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "bun test src/",
     "prepublishOnly": "bun run build"
