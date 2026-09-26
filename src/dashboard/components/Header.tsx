@@ -1,7 +1,30 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Package, RefreshCw, PanelLeft, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.js';
 import type { ProjectEntry } from '../../types/artifact.js';
+import { ProjectSwitcher } from './ProjectSwitcher.js';
+
+function useDaemonHealth(): boolean {
+  const [alive, setAlive] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    const probe = async () => {
+      try {
+        const res = await fetch('/api/health');
+        if (!cancelled) setAlive(res.ok);
+      } catch {
+        if (!cancelled) setAlive(false);
+      }
+    };
+    void probe();
+    const timer = setInterval(() => void probe(), 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+  return alive;
+}
 
 type ArtifactType = 'generic' | 'study' | 'wireframe';
 
@@ -27,6 +50,7 @@ const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
 
 export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
+  const daemonAlive = useDaemonHealth();
 
   useEffect(() => {
     if (projectName) {
@@ -57,20 +81,15 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
             </p>
           </div>
           {projects.length > 1 && (
-            <select
-              value={projectId}
-              onChange={(e) => { window.location.href = `/p/${e.target.value}/`; }}
-              title="Switch project"
-              className="max-w-48 truncate rounded-lg border border-line bg-panel px-2 py-1.5 text-xs text-text-secondary hover:bg-panel-hover"
-            >
-              {projects.map((p) => (
-                <option key={p.projectId} value={p.projectId}>{p.name}</option>
-              ))}
-            </select>
+            <ProjectSwitcher projectId={projectId} projects={projects} />
           )}
         </div>
 
         <div className="flex items-center gap-2">
+          <span
+            title={daemonAlive ? 'Daemon connected' : 'Daemon unreachable'}
+            className={`h-2 w-2 rounded-full ${daemonAlive ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}
+          />
           <button
             onClick={toggleTheme}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-panel-hover hover:text-text-secondary transition-colors"

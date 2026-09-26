@@ -77,3 +77,8 @@ Print the dashboard link. Without args: the daemon root (`/`), which shows
 every artifact of every registered project grouped by project — the one link
 to share. With a project id: that project's dashboard (`/p/<id>/`).
 
+## `artifact logs [-n 100] [-f]`
+
+Print the daemon log (`~/.artifact/daemon.log`, rotated at 1 MB). `-f`
+follows new lines until interrupted.
+

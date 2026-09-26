@@ -75,6 +75,11 @@ export class Logger {
     return `${prefixStr} ${contextStr} ${message}${argsStr}`;
   }
 
+  private plain(level: LogLevel, message: string, args: any[]): string {
+    const argsStr = args.length > 0 ? " " + args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ") : "";
+    return `${new Date().toISOString()} [${PREFIXES[level]}] [${this.context}] ${message}${argsStr}`;
+  }
+
   private log(level: LogLevel, message: string, ...args: any[]): void {
     if (!this.shouldLog(level)) return;
 
@@ -86,6 +91,17 @@ export class Logger {
       console.warn(output);
     } else {
       console.log(output);
+    }
+
+    if (sinks.length > 0) {
+      const line = this.plain(level, message, args);
+      for (const sink of sinks) {
+        try {
+          sink(line);
+        } catch {
+          // a failing sink must never break logging
+        }
+      }
     }
   }
 
@@ -108,4 +124,13 @@ export class Logger {
 
 export function createLogger(context: string): Logger {
   return new Logger(context);
+}
+
+type LogSink = (line: string) => void;
+
+const sinks: LogSink[] = [];
+
+/** Extra outputs for log lines (e.g. the daemon log file). Browser-safe: no imports. */
+export function addLogSink(sink: LogSink): void {
+  sinks.push(sink);
 }

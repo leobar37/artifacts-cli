@@ -1,8 +1,19 @@
 import { createHash } from 'crypto';
+import { realpathSync } from 'fs';
 import path from 'path';
 
+/** Canonical dir for identity: resolves symlinks (/tmp -> /private/tmp on
+ * macOS), dot segments and trailing slashes so one directory is one project. */
+export function canonicalDir(cwd: string): string {
+  try {
+    return realpathSync(cwd);
+  } catch {
+    return path.resolve(cwd);
+  }
+}
+
 export function getProjectId(cwd: string): string {
-  return createHash('sha256').update(cwd).digest('hex').slice(0, 16);
+  return createHash('sha256').update(canonicalDir(cwd)).digest('hex').slice(0, 16);
 }
 
 export function getProjectName(cwd: string): string {

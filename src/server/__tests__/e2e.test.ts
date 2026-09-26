@@ -153,6 +153,7 @@ describe("daemon: one server, many projects", () => {
 describe("migration: legacy instances.json -> projects registry", () => {
   it("imports legacy project paths and removes the lockfile", async () => {
     const { migrateLegacyInstances } = await import("../../utils/projects.js");
+    const { canonicalDir } = await import("../../utils/project.js");
     const legacyFile = join(process.env.ARTIFACT_DIR!, "instances.json");
     writeFileSync(
       legacyFile,
@@ -163,13 +164,13 @@ describe("migration: legacy instances.json -> projects registry", () => {
     );
 
     const imported = migrateLegacyInstances();
-    expect(imported.map((e) => e.projectPath)).toContain(projectC);
+    expect(imported.map((e) => e.projectPath)).toContain(canonicalDir(projectC));
     expect(imported).toHaveLength(1); // deleted dir is skipped
     expect(existsSync(legacyFile)).toBe(false);
 
     const list = (await (await fetch(`${baseUrl}/api/projects`)).json()) as {
       projects: Array<{ projectPath: string }>;
     };
-    expect(list.projects.map((p) => p.projectPath)).toContain(projectC);
+    expect(list.projects.map((p) => p.projectPath)).toContain(canonicalDir(projectC));
   });
 });

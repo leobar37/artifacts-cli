@@ -16,9 +16,10 @@ import {
 import { findAvailablePort } from '../../utils/port-finder.js';
 import { resolveHost } from '../../utils/host.js';
 import { startServer, getActualPort } from '../../server/index.js';
-import { isHeadless, openBrowser } from '../../utils/open-browser.js';
 import { ensureBuild, runBuild } from '../../utils/build-check.js';
+import { isHeadless, openBrowser } from '../../utils/open-browser.js';
 import { createLogger } from '../../utils/logger.js';
+import { initDaemonLog, installGlobalErrorHandlers } from '../../utils/daemon-log.js';
 
 const log = createLogger('cli:start');
 
@@ -77,6 +78,8 @@ export function startCommand(program: Command) {
           log.info(chalk.cyan('  cd /path/to/artifact-cli && bun install'));
         }
 
+        initDaemonLog();
+        installGlobalErrorHandlers();
         await startServer({ port: apiPort, host: bindHost });
         const bound = getActualPort() || apiPort;
         setDaemon({

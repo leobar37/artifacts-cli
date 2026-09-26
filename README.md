@@ -57,9 +57,7 @@ artifact reload <slug>                  # reload an artifact in the dashboard
 - `artifact list` — daemon status + registered projects with per-project URLs
 - `artifact url [projectId]` — print the dashboard link: the all-artifacts overview, or one project
 - `artifact stop` — stop the daemon
-- `artifact serve [-p <port>] [--host <host>] [--tailscale]` — run the daemon in the foreground (single server for all projects)
-- `artifact unregister [projectId]` — remove a project from the registry (defaults to cwd)
-- `artifact reload <slug>` — reload an artifact
+- `artifact logs [-n 100] [-f]` — show the daemon log (`~/.artifact/daemon.log`)
 
 ```bash
 artifact start --host tailscale  # or: artifact start --tailscale
@@ -136,6 +134,23 @@ bun run dev:server   # server with watch
 bun run typecheck    # tsc dashboard + node
 bunx vitest run      # tests
 ```
+
+### Preview UI changes with mock data (before deploying)
+
+```bash
+bun run mock                                              # seed /tmp/artifact-mock (shop/blog/empty)
+ARTIFACT_DIR=/tmp/artifact-mock/home artifact start       # daemon with isolated registry
+```
+
+Visual checklist: overview grouping + counts, project switcher (mouse + keyboard),
+viewer load, viewer timeout (stop the daemon on purpose, expect the error panel
+with Retry, not an endless spinner), narrow viewport. Clean up with `artifact stop`
+and `rm -rf /tmp/artifact-mock`.
+
+### Daemon logs
+
+The daemon tees every log line to `~/.artifact/daemon.log` (rotated at 1 MB).
+Read it with `artifact logs [-n 100] [-f]`.
 
 ## Structure
 

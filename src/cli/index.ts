@@ -12,6 +12,7 @@ import { unregisterCommand } from "./commands/unregister.js";
 import { reloadCommand } from "./commands/reload.js";
 import { createCommand } from "./commands/create.js";
 import { urlCommand } from "./commands/url.js";
+import { logsCommand } from "./commands/logs.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -34,4 +35,5 @@ unregisterCommand(program);
 reloadCommand(program);
 createCommand(program);
 urlCommand(program);
+logsCommand(program);
 program.parse();

@@ -77,7 +77,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   await registry.loadAll();
 
-  // --- Global routes ---------------------------------------------------------
+  // Never die silently on a bad request handler: log and answer 500.
+  app.onError((err, c) => {
+    log.error(`unhandled route error: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+    return c.json({ error: "INTERNAL_ERROR", message: "Unexpected server error" }, 500);
+  });
   app.route("/api/health", healthRouter);
 
   app.get("/api/projects", (c) => {

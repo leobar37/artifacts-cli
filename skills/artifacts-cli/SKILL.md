@@ -47,8 +47,8 @@ artifact stop
 artifact unregister [projectId]
 artifact reload <slug>
 artifact url [projectId]   # print the dashboard link (overview, or one project)
+artifact logs [-n 100]     # read the daemon log
 ```
-
 ## Artifact conventions
 
 - Directory per artifact: `docs/artifacts/<slug>/` with `index.html` (standalone HTML).

@@ -27,6 +27,7 @@
     "build:server": "rm -f tsconfig.node.tsbuildinfo && tsc -p tsconfig.node.json && chmod +x dist/cli/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "bun test src/",
+    "mock": "bun scripts/mock.ts",
     "prepublishOnly": "bun run build"
   },
   "engines": {

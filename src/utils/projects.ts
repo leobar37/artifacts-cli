@@ -2,9 +2,8 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, rmSync } from "fs";
 import { homedir } from "os";
 import http from "http";
 import path from "path";
-import { getProjectId, getProjectName } from "./project.js";
-import type { ProjectEntry, DaemonInfo } from "../types/artifact.js";
-
+import { canonicalDir, getProjectId, getProjectName } from "./project.js";
+import type { DaemonInfo, ProjectEntry } from "../types/artifact.js";
 /**
  * Single-daemon model: one server process serves every registered project.
  * - `projects.json`: path-keyed registry (persists across restarts).
@@ -52,11 +51,6 @@ export function readProjects(): Map<string, ProjectEntry> {
   return new Map(Object.entries(data));
 }
 
-function writeProjects(projects: Map<string, ProjectEntry>): void {
-  ensureDir();
-  writeFileSync(projectsPath(), JSON.stringify(Object.fromEntries(projects), null, 2));
-}
-
 export function listProjects(): ProjectEntry[] {
   return [...readProjects().values()];
 }
@@ -65,13 +59,19 @@ export function getProject(projectId: string): ProjectEntry | null {
   return readProjects().get(projectId) ?? null;
 }
 
+function writeProjects(projects: Map<string, ProjectEntry>): void {
+  ensureDir();
+  writeFileSync(projectsPath(), JSON.stringify(Object.fromEntries(projects), null, 2));
+}
+
 export function registerProject(cwd: string): ProjectEntry {
+  const dir = canonicalDir(cwd);
   const projects = readProjects();
-  const projectId = getProjectId(cwd);
+  const projectId = getProjectId(dir);
   const entry: ProjectEntry = {
     projectId,
-    projectPath: cwd,
-    name: getProjectName(cwd),
+    projectPath: dir,
+    name: getProjectName(dir),
     addedAt: projects.get(projectId)?.addedAt ?? new Date().toISOString(),
   };
   projects.set(projectId, entry);

@@ -4,6 +4,7 @@ import { resolveHost } from '../../utils/host.js';
 import { startServer, getActualPort } from '../../server/index.js';
 import { ensureBuild } from '../../utils/build-check.js';
 import { createLogger } from '../../utils/logger.js';
+import { initDaemonLog, installGlobalErrorHandlers } from '../../utils/daemon-log.js';
 
 const log = createLogger('cli:serve');
 
@@ -29,6 +30,9 @@ export function serveCommand(program: Command) {
       if (existing) removeDaemon();
 
       const port = options.port ? parseInt(options.port, 10) : 7000;
+
+      initDaemonLog();
+      installGlobalErrorHandlers();
 
       try {
         await startServer({ port, host: bindHost });
