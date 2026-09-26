@@ -24,45 +24,54 @@ interface Seed {
 }
 
 function html(title: string, type: string, body: string): string {
+  // Representative of real agent output: Tailwind via CDN, explicit dark
+  // colors (never bare browser defaults).
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <meta name="artifact-type" content="${type}" />
   <title>${title}</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body>${body}</body>
+<body class="bg-neutral-950 text-neutral-100 antialiased">
+  <main class="mx-auto max-w-2xl px-6 py-10">
+    <p class="mb-2 text-xs font-medium uppercase tracking-widest text-violet-400">${type}</p>
+    <h1 class="text-3xl font-bold leading-tight">${title}</h1>
+    <div class="mt-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-300">${body}</div>
+  </main>
+</body>
 </html>
 `;
 }
-
 const SHOP_SEEDS: Seed[] = [
-  { slug: "molly-flyers", title: "Molly · Flyers de inauguración", type: "study", body: "<h1>Molly</h1>", daysAgo: 0 },
-  { slug: "molly-identidad", title: "Molly — identidad corregida", type: "study", body: "<h1>ID</h1>", daysAgo: 0 },
+  { slug: "molly-flyers", title: "Molly · Flyers de inauguración", type: "study", body: "<p>Contenido de ejemplo.</p>", daysAgo: 0 },
+  { slug: "molly-identidad", title: "Molly — identidad corregida", type: "study", body: "<p>Contenido de ejemplo.</p>", daysAgo: 0 },
   {
     slug: "molly-preset",
     title: "Molly Discoteca — Preset video + flyers · Cutervo",
     type: "study",
-    body: "<h1>Preset</h1>",
+    body: "<p>Contenido de ejemplo para <strong>Preset</strong>. Así se ve un artifact con estilos Tailwind.</p>",
     daysAgo: 0,
   },
-  { slug: "omp-control", title: "El trabajo tiene identidad — Control e IDs de OMP", type: "study", body: "<h1>OMP</h1>", daysAgo: 0 },
-  { slug: "pestana-videos", title: "Una pestaña. Varios videos. — Orquestador OMP", type: "wireframe", body: "<h1>Wire</h1>", daysAgo: 0 },
-  { slug: "eval-voltagent", title: "Eval en VoltAgent — Sistema de Evaluación de Agentes AI", type: "generic", body: "<h1>Eval</h1>", daysAgo: 3 },
-  { slug: "alibaba-streaming", title: "Alibaba Streaming Internals - LanguageModelV4", type: "generic", body: "<h1>Stream</h1>", daysAgo: 3 },
+  { slug: "omp-control", title: "El trabajo tiene identidad — Control e IDs de OMP", type: "study", body: "<p>Contenido de ejemplo para <strong>OMP</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 0 },
+  { slug: "pestana-videos", title: "Una pestaña. Varios videos. — Orquestador OMP", type: "wireframe", body: "<p>Contenido de ejemplo para <strong>Wire</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 0 },
+  { slug: "eval-voltagent", title: "Eval en VoltAgent — Sistema de Evaluación de Agentes AI", type: "generic", body: "<p>Contenido de ejemplo para <strong>Eval</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 3 },
+  { slug: "alibaba-streaming", title: "Alibaba Streaming Internals - LanguageModelV4", type: "generic", body: "<p>Contenido de ejemplo para <strong>Stream</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 3 },
   {
     slug: "titulo-larguisimo",
     title: "Este es un título exageradamente largo para ver cómo trunca la sidebar en dos líneas sin romper el layout del card",
     type: "generic",
-    body: "<h1>Long</h1>",
+    body: "<p>Contenido de ejemplo para <strong>Long</strong>. Así se ve un artifact con estilos Tailwind.</p>",
     daysAgo: 5,
   },
 ];
 
 const BLOG_SEEDS: Seed[] = [
-  { slug: "hola-mundo", title: "Hola mundo", type: "generic", body: "<h1>Hola</h1>", daysAgo: 1 },
-  { slug: "wire-ejemplo", title: "Wire de ejemplo", type: "wireframe", body: "<h1>Wire</h1>", daysAgo: 10 },
+  { slug: "hola-mundo", title: "Hola mundo", type: "generic", body: "<p>Contenido de ejemplo para <strong>Hola</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 1 },
+  { slug: "wire-ejemplo", title: "Wire de ejemplo", type: "wireframe", body: "<p>Contenido de ejemplo para <strong>Wire</strong>. Así se ve un artifact con estilos Tailwind.</p>", daysAgo: 10 },
 ];
 
 function seedProject(name: string, seeds: Seed[]): string {
