@@ -1,18 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Artifact } from '../../types/artifact.js';
+import type { Artifact, RemoteSummary } from '../../types/artifact.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
-import { projectBase } from '../lib/project.js';
-import { Maximize2, Minimize2, Box, AlertTriangle, RefreshCw } from 'lucide-react';
+import { eventsUrl, previewUrl, projectBase } from '../lib/project.js';
+import { Maximize2, Minimize2, Box, AlertTriangle, RefreshCw, ServerOff } from 'lucide-react';
+
+export interface RemoteViewerContext {
+  remoteId: string;
+  projectId: string;
+  remote: RemoteSummary;
+}
 
 interface ArtifactViewerProps {
   artifact: Artifact | null;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
+  /** Absent = current local URL/SSE behavior. Present = broker mode. */
+  remote?: RemoteViewerContext;
 }
 
 const LOAD_TIMEOUT_MS = 15000;
 
-type LoadError = 'unreachable' | 'timeout' | null;
+type LoadError = 'unreachable' | 'timeout' | 'not-found' | 'offline-upstream' | null;
 
 async function isDaemonReachable(): Promise<boolean> {
   try {
@@ -23,12 +31,34 @@ async function isDaemonReachable(): Promise<boolean> {
   }
 }
 
-export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: ArtifactViewerProps) {
+/** Classify the same-origin preview before mounting the iframe. */
+async function preflightPreview(url: string): Promise<LoadError> {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    if (res.ok) return null;
+    if (res.status === 404) return 'not-found';
+    if (res.status === 503) return 'offline-upstream';
+    return 'unreachable';
+  } catch {
+    return 'unreachable';
+  }
+}
+
+export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote }: ArtifactViewerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<LoadError>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRetriedRef = useRef(false);
+
+  const isOffline = !!remote && remote.remote.status === 'offline';
+  const [refreshKey, setRefreshKey] = useState(0);
+  const previewSrc = artifact
+    ? remote
+      ? previewUrl(remote.remoteId, remote.projectId, artifact.slug, `?v=${refreshKey}`)
+      : `${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`
+    : null;
+
 
   const stretchHtmlArtifact = () => {
     const iframe = iframeRef.current;
@@ -51,8 +81,6 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
     doc.head.appendChild(style);
   };
 
-  const [refreshKey, setRefreshKey] = useState(0);
-
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -61,7 +89,14 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
   }, []);
 
   const handleTimeout = useCallback(async () => {
-    if (!(await isDaemonReachable())) {
+    if (remote) {
+      const err = await preflightPreview(previewUrl(remote.remoteId, remote.projectId, artifact?.slug ?? ''));
+      if (err) {
+        setLoadError(err === 'offline-upstream' ? 'offline-upstream' : err);
+        setIsLoading(false);
+        return;
+      }
+    } else if (!(await isDaemonReachable())) {
       setLoadError('unreachable');
       setIsLoading(false);
       return;
@@ -74,7 +109,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
     }
     setLoadError('timeout');
     setIsLoading(false);
-  }, []);
+  }, [remote, artifact?.slug]);
 
   const startLoading = useCallback(() => {
     clearTimer();
@@ -97,15 +132,29 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
     setRefreshKey((k) => k + 1);
   }, []);
 
-  useArtifactEvents({
-    filter: (event) => !!artifact && event.slug === artifact.slug,
-    onEvent: reloadArtifact,
-  });
+  const brokerEventsUrl = remote ? eventsUrl(remote.remoteId, remote.projectId) : null;
+  const slugFilter = artifact?.slug ?? null;
+  useEffect(() => {
+    if (!brokerEventsUrl || !slugFilter || isOffline) return;
+    const es = new EventSource(brokerEventsUrl);
+    es.addEventListener('artifacts:update', (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data) as { slug: string };
+        if (event.slug === slugFilter) reloadArtifact();
+      } catch {
+        // ignore parse errors
+      }
+    });
+    es.onerror = () => {};
+    return () => es.close();
+  }, [brokerEventsUrl, slugFilter, isOffline, reloadArtifact]);
+
+  useArtifactEventsLocal(remote == null, artifact?.slug ?? null, reloadArtifact);
 
   useEffect(() => {
     startLoading();
     return clearTimer;
-  }, [artifact?.slug, startLoading, clearTimer]);
+  }, [artifact?.slug, remote?.remoteId, remote?.projectId, startLoading, clearTimer]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
@@ -119,6 +168,29 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
         <p className="text-sm text-text-muted">
           Choose an artifact from the sidebar to view its contents
         </p>
+      </div>
+    );
+  }
+
+  // Offline remote: no iframe, no EventSource — catalog metadata only.
+  if (isOffline && remote) {
+    return (
+      <div className="flex h-full w-full flex-1 flex-col items-center justify-center p-8 text-center bg-bg">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-panel-hover">
+          <ServerOff className="h-8 w-8 text-text-faint" />
+        </div>
+        <h3 className="mb-2 text-xl font-medium text-text-primary">Remote offline</h3>
+        <p className="mb-1 text-sm text-text-muted">
+          {remote.remote.name} is Offline — preview unavailable until it returns.
+        </p>
+        <p className="mb-6 text-xs text-text-faint">Last seen {remote.remote.lastSeenAt}</p>
+        <button
+          onClick={retry}
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-medium text-accent-text transition-colors hover:bg-accent-hover"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </button>
       </div>
     );
   }
@@ -158,12 +230,20 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
             <div className="max-w-sm text-center rounded-xl bg-panel p-6 border border-line">
               <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-yellow-500" />
               <h3 className="mb-2 text-sm font-medium text-text-primary">
-                {loadError === 'unreachable' ? 'Daemon unreachable' : 'Preview timed out'}
+                {loadError === 'unreachable' ? (remote ? 'Broker unreachable' : 'Daemon unreachable')
+                  : loadError === 'not-found' ? 'Artifact not found'
+                  : loadError === 'offline-upstream' ? 'Remote offline' : 'Preview timed out'}
               </h3>
               <p className="mb-4 text-xs text-text-muted">
                 {loadError === 'unreachable'
-                  ? 'The dashboard server is not responding. Bring it back with `artifact start`.'
-                  : 'The artifact took too long to load. Check `artifact logs` if it keeps happening.'}
+                  ? (remote
+                    ? 'The broker is not responding.'
+                    : 'The dashboard server is not responding. Bring it back with `artifact start`.')
+                  : loadError === 'not-found'
+                    ? 'This artifact is no longer on the remote.'
+                    : loadError === 'offline-upstream'
+                      ? 'The remote went offline. Its catalog is retained; preview resumes when it returns.'
+                      : 'The artifact took too long to load.'}
               </p>
               <button
                 onClick={retry}
@@ -178,7 +258,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
 
         <iframe
           ref={iframeRef}
-          src={`${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`}
+          src={previewSrc ?? undefined}
           sandbox="allow-scripts allow-same-origin allow-popups"
           className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading && !loadError ? 'opacity-0' : 'opacity-100'}`}
           title={artifact.title}
@@ -190,9 +270,23 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize }: Arti
           onError={() => {
             clearTimer();
             setIsLoading(false);
+            setLoadError((e) => e ?? 'unreachable');
           }}
         />
       </div>
     </div>
   );
+}
+
+/** Local SSE subscription; skipped in broker mode (qualified URL above). */
+function useArtifactEventsLocal(enabled: boolean, slug: string | null, onEvent: () => void) {
+  const cb = useRef(onEvent);
+  cb.current = onEvent;
+  useArtifactEvents({
+    enabled,
+    filter: (event) => !!slug && event.slug === slug,
+    onEvent: () => {
+      cb.current();
+    },
+  });
 }

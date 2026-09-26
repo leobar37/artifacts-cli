@@ -13,6 +13,8 @@ import { reloadCommand } from "./commands/reload.js";
 import { createCommand } from "./commands/create.js";
 import { urlCommand } from "./commands/url.js";
 import { logsCommand } from "./commands/logs.js";
+import { brokerCommand } from "./commands/broker.js";
+import { agentCommand } from "./commands/agent.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -36,4 +38,6 @@ reloadCommand(program);
 createCommand(program);
 urlCommand(program);
 logsCommand(program);
+brokerCommand(program);
+agentCommand(program);
 program.parse();

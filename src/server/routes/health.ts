@@ -5,6 +5,7 @@ const router = new Hono();
 router.get('/', (c) => {
   return c.json({
     status: 'ok',
+    role: 'local',
     timestamp: new Date().toISOString(),
     version: process.env.ARTIFACT_VERSION || '0.1.0',
   });

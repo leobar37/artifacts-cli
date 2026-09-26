@@ -14,6 +14,6 @@
     "declarationMap": true,
     "resolveJsonModule": true
   },
-  "include": ["src/cli/**/*", "src/server/**/*", "src/utils/**/*", "src/types/**/*", "src/handlers/**/*"],
+  "include": ["src/cli/**/*", "src/server/**/*", "src/utils/**/*", "src/types/**/*", "src/handlers/**/*", "src/agent/**/*", "src/broker/**/*"],
   "exclude": ["src/dashboard/**/*", "**/fixtures/**"]
 }

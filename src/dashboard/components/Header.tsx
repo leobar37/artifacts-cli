@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Package, RefreshCw, PanelLeft, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.js';
-import type { ProjectEntry } from '../../types/artifact.js';
+import type { ProjectEntry, RemoteSummary } from '../../types/artifact.js';
 import { ProjectSwitcher } from './ProjectSwitcher.js';
-
+import { RemoteSwitcher } from './RemoteSwitcher.js';
 function useDaemonHealth(): boolean {
   const [alive, setAlive] = useState(true);
   useEffect(() => {
@@ -39,8 +39,13 @@ interface HeaderProps {
   projectName?: string;
   projectId: string;
   projects: ProjectEntry[];
+  /** Broker mode: show remote + textual status alongside the project. */
+  remoteName?: string;
+  remoteStatus?: 'online' | 'offline';
+  remoteId?: string;
+  remotes?: RemoteSummary[];
+  onNavigateProject?: (projectId: string) => void;
 }
-
 const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'generic', label: 'Generic' },
@@ -48,7 +53,7 @@ const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
   { value: 'wireframe', label: 'Wireframe' },
 ];
 
-export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects }: HeaderProps) {
+export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects, remoteName, remoteStatus, remoteId, remotes, onNavigateProject }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const daemonAlive = useDaemonHealth();
 
@@ -60,8 +65,8 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
 
   return (
     <header className="flex flex-col border-b border-line bg-panel sticky top-0 z-20">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
           {sidebarCollapsed && onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
@@ -71,17 +76,25 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
               <PanelLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-accent">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
             <Package className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-sm font-medium text-text-primary">{projectName || 'Artifact CLI'}</h1>
-            <p className="text-xs text-text-muted">
-              {total} artifact{total !== 1 ? 's' : ''}
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-medium text-text-primary">
+              {remoteName ? `${remoteName} / ${projectName || '…'}` : (projectName || 'Artifact CLI')}
+            </h1>
+            <p className="flex items-center gap-2 text-xs text-text-muted">
+              <span>{total} artifact{total !== 1 ? 's' : ''}</span>
+              {remoteStatus && (
+                <span className="font-medium text-text-secondary">{remoteStatus === 'online' ? 'Online' : 'Offline'}</span>
+              )}
             </p>
           </div>
+          {remotes && remoteId && (
+            <RemoteSwitcher remoteId={remoteId} remotes={remotes} />
+          )}
           {projects.length > 1 && (
-            <ProjectSwitcher projectId={projectId} projects={projects} />
+            <ProjectSwitcher projectId={projectId} projects={projects} navigate={onNavigateProject} />
           )}
         </div>
 
@@ -120,13 +133,13 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
       </div>
 
       {/* Type Filter Tabs */}
-      <div className="flex gap-1 px-4 pb-3">
+      <div className="flex gap-1 overflow-x-auto px-4 pb-3">
         {typeFilters.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => onSelectType(value)}
             className={`
-              rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
+              shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
               ${selectedType === value
                 ? 'bg-accent text-accent-text'
                 : 'text-text-muted hover:bg-panel-hover hover:text-text-secondary'

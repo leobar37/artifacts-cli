@@ -11,9 +11,11 @@ type EventFilter = (event: ArtifactEvent) => boolean;
 interface UseArtifactEventsOptions {
   filter?: EventFilter;
   onEvent: (event: ArtifactEvent) => void;
+  /** When false, no EventSource is created (e.g. offline remotes). */
+  enabled?: boolean;
 }
 
-export function useArtifactEvents({ filter, onEvent }: UseArtifactEventsOptions) {
+export function useArtifactEvents({ filter, onEvent, enabled = true }: UseArtifactEventsOptions) {
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -21,6 +23,7 @@ export function useArtifactEvents({ filter, onEvent }: UseArtifactEventsOptions)
   filterRef.current = filter;
 
   useEffect(() => {
+    if (!enabled) return;
     const es = new EventSource(apiUrl('/events'));
 
     es.addEventListener('artifacts:update', (e: MessageEvent) => {
@@ -41,5 +44,5 @@ export function useArtifactEvents({ filter, onEvent }: UseArtifactEventsOptions)
     return () => {
       es.close();
     };
-  }, []);
+  }, [enabled]);
 }

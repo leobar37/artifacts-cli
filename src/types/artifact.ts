@@ -35,3 +35,92 @@ export interface ProjectEnv {
     project: ProjectEntry;
   };
 }
+
+// --- Remote broker wire contracts (additive; local contracts unchanged) ---
+
+export type RemoteStatus = "online" | "offline";
+
+/** Public project entry: no absolute filesystem path. */
+export interface PublicProjectEntry {
+  projectId: string;
+  name: string;
+  addedAt: string;
+}
+
+/** Artifact over the wire: no absolute path, ISO date strings. */
+export interface ArtifactWire {
+  slug: string;
+  title: string;
+  relativePath: string;
+  type: Artifact["type"];
+  createdAt: string;
+  modifiedAt: string;
+  size: number;
+}
+
+export interface RemoteCatalogProject {
+  project: PublicProjectEntry;
+  totalCount: number;
+  artifacts: ArtifactWire[];
+}
+
+export interface RemoteCatalog {
+  generatedAt: string;
+  projects: RemoteCatalogProject[];
+}
+
+export interface StoredRemoteEntry {
+  remoteId: string;
+  name: string;
+  baseUrl: string;
+  version: string;
+  agentStartedAt: string;
+  lastSeenAt: string;
+  catalog: RemoteCatalog;
+}
+
+export interface RemoteSummary {
+  remoteId: string;
+  name: string;
+  version: string;
+  status: RemoteStatus;
+  lastSeenAt: string;
+  projectCount: number;
+  artifactCount: number;
+}
+
+export interface RemoteOverviewGroup {
+  remote: RemoteSummary;
+  projects: RemoteCatalogProject[];
+}
+
+export interface RemoteRegistrationRequest {
+  remoteId: string;
+  name: string;
+  baseUrl: string;
+  version: string;
+  startedAt: string;
+  catalog: RemoteCatalog;
+}
+
+export interface RemoteHeartbeatRequest {
+  version: string;
+  startedAt: string;
+  catalog: RemoteCatalog;
+}
+
+export interface AgentDaemonInfo {
+  remoteId: string;
+  brokerUrl: string;
+  host: string;
+  port: number;
+  pid: number;
+  startedAt: string;
+}
+
+export interface BrokerDaemonInfo {
+  port: number;
+  host: string;
+  pid: number;
+  startedAt: string;
+}

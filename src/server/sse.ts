@@ -7,7 +7,7 @@ interface SSEClient {
 }
 
 /** Clients subscribe per project; broadcasts only reach that project's viewers. */
-class SSERegistry {
+export class SSERegistry {
   private clients = new Map<string, SSEClient>();
   private counter = 0;
 
@@ -40,4 +40,10 @@ class SSERegistry {
   }
 }
 
+/** Per-server factory; two servers never share clients. */
+export function createSSERegistry(): SSERegistry {
+  return new SSERegistry();
+}
+
+// Backwards-compatible singleton for current callers/tests.
 export const sseRegistry = new SSERegistry();
