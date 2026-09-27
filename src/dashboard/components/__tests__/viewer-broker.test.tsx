@@ -114,4 +114,38 @@ describe("ArtifactViewer (broker mode)", () => {
       vi.useRealTimers();
     }
   });
+
+  it("does not restart loading when polls mint a new remote object", async () => {
+    // Regression: catalog polls create fresh `remote` objects every 15s.
+    // Depending on that identity restarted the spinner forever (and the
+    // timeout auto-retry reloaded the iframe in a loop).
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+      const mkRemote = () => ({
+        remoteId: "r-a",
+        projectId: "p1",
+        remote: {
+          remoteId: "r-a", name: "ubuntu-dev", version: "v", status: "online" as const,
+          lastSeenAt: new Date().toISOString(), projectCount: 1, artifactCount: 1,
+        },
+      });
+      const { rerender } = render(<ArtifactViewer artifact={ARTIFACT} remote={mkRemote()} />);
+      const { fireEvent: fire } = await import("@testing-library/react");
+      fire.load(screen.getByTitle("Demo"));
+      expect(screen.queryByText("Loading preview...")).toBeNull();
+      // Poll-like re-render: equal values, fresh object identity.
+      rerender(<ArtifactViewer artifact={ARTIFACT} remote={mkRemote()} />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(16000);
+      });
+      expect(screen.queryByText("Loading preview...")).toBeNull();
+      expect((screen.getByTitle("Demo") as HTMLIFrameElement).getAttribute("src")).toBe(
+        "/r/r-a/p/p1/artifacts/demo/index.html?v=0",
+      );
+      expect(FakeEventSource.instances).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

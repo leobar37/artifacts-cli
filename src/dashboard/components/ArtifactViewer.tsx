@@ -61,24 +61,28 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
 
 
   const stretchHtmlArtifact = () => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
+    try {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
 
-    const doc = iframe.contentDocument;
-    if (!doc) return;
+      const doc = iframe.contentDocument;
+      if (!doc || !doc.head) return;
 
-    const styleId = 'artifact-viewer-full-width-override';
-    const existing = doc.getElementById(styleId);
-    if (existing) return;
+      const styleId = 'artifact-viewer-full-width-override';
+      const existing = doc.getElementById(styleId);
+      if (existing) return;
 
-    const style = doc.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-      [class*="max-w-"] { max-width: none !important; }
-      .container { max-width: none !important; }
-    `;
+      const style = doc.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        [class*="max-w-"] { max-width: none !important; }
+        .container { max-width: none !important; }
+      `;
 
-    doc.head.appendChild(style);
+      doc.head.appendChild(style);
+    } catch {
+      // Cross-origin or unloaded iframe: stretching is best-effort only.
+    }
   };
 
   const clearTimer = useCallback(() => {
@@ -88,9 +92,19 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
     }
   }, []);
 
+  // Latest props via refs so timeout/loading callbacks keep a stable identity
+  // across parent re-renders. Catalog polls mint fresh `remote` objects every
+  // 15s; depending on that identity restarted the spinner forever.
+  const artifactRef = useRef(artifact);
+  artifactRef.current = artifact;
+  const remoteRef = useRef(remote);
+  remoteRef.current = remote;
+
   const handleTimeout = useCallback(async () => {
-    if (remote) {
-      const err = await preflightPreview(previewUrl(remote.remoteId, remote.projectId, artifact?.slug ?? ''));
+    const a = artifactRef.current;
+    const r = remoteRef.current;
+    if (r) {
+      const err = await preflightPreview(previewUrl(r.remoteId, r.projectId, a?.slug ?? ''));
       if (err) {
         setLoadError(err === 'offline-upstream' ? 'offline-upstream' : err);
         setIsLoading(false);
@@ -109,7 +123,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
     }
     setLoadError('timeout');
     setIsLoading(false);
-  }, [remote, artifact?.slug]);
+  }, []);
 
   const startLoading = useCallback(() => {
     clearTimer();
@@ -151,10 +165,18 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
 
   useArtifactEventsLocal(remote == null, artifact?.slug ?? null, reloadArtifact);
 
+  // Primitive scope key: only real scope changes (artifact, remote, status)
+  // restart loading — never object identity from polls.
+  const scopeKey = remote ? `${remote.remoteId}/${remote.projectId}/${remote.remote.status}` : 'local';
   useEffect(() => {
+    if (!artifact || isOffline) {
+      clearTimer();
+      setIsLoading(false);
+      return;
+    }
     startLoading();
     return clearTimer;
-  }, [artifact?.slug, remote?.remoteId, remote?.projectId, startLoading, clearTimer]);
+  }, [artifact?.slug, scopeKey, isOffline, startLoading, clearTimer]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
