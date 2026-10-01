@@ -34,7 +34,8 @@ bunx skills add leobar37/artifacts-cli
 ```
 
 This installs the `artifacts-cli` skill (compatible with [skills.sh](https://skills.sh/leobar37/artifacts-cli)):
-artifact workflow, command reference, `index.html` conventions, and troubleshooting.
+artifact workflow, command reference, html/md/mdx conventions with the full
+authoring reference for MDX components, and troubleshooting.
 
 ## Usage
 
@@ -179,7 +180,7 @@ Read it with `artifact logs [-n 100] [-f]`.
 .
 ├── src/
 │   ├── cli/         # entry point and commands
-│   ├── server/      # Hono server + watcher + dashboard API
+│   ├── server/      # Hono server + watcher + dashboard API + markdown/mdx viewer
 │   ├── dashboard/   # React app (Vite)
 │   ├── handlers/    # artifact types (generic/study/wireframe)
 │   └── utils/       # scanner, registry, daemon, ports, host/tailscale
