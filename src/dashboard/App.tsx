@@ -232,6 +232,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
       path: found.relativePath,
       relativePath: found.relativePath,
       type: found.type,
+      format: found.format,
       createdAt: new Date(found.createdAt),
       modifiedAt: new Date(found.modifiedAt),
       size: found.size,
@@ -351,13 +352,14 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
   );
 }
 
-function wireList(artifacts: { slug: string; title: string; relativePath: string; type: Artifact['type']; createdAt: string; modifiedAt: string; size: number }[]): Artifact[] {
+function wireList(artifacts: { slug: string; title: string; relativePath: string; type: Artifact['type']; format: Artifact['format']; createdAt: string; modifiedAt: string; size: number }[]): Artifact[] {
   return artifacts.map((a) => ({
     slug: a.slug,
     title: a.title,
     path: a.relativePath,
     relativePath: a.relativePath,
     type: a.type,
+    format: a.format,
     createdAt: new Date(a.createdAt),
     modifiedAt: new Date(a.modifiedAt),
     size: a.size,
@@ -406,7 +408,7 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
   );
 }
 
-function ProjectDashboard({ project, projects }: { project: ProjectEntry; projects: ProjectEntry[] }) {
+export function ProjectDashboard({ project, projects }: { project: ProjectEntry; projects: ProjectEntry[] }) {
   const [selectedType, setSelectedType] = useState<ArtifactType | "all">("all");
   const { artifacts, total, loading, error, refetch } = useArtifacts({
     type: selectedType,

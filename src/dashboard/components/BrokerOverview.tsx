@@ -11,6 +11,7 @@ function wireToLocal(a: ArtifactWire): Artifact {
     path: a.relativePath,
     relativePath: a.relativePath,
     type: a.type,
+    format: a.format,
     createdAt: new Date(a.createdAt),
     modifiedAt: new Date(a.modifiedAt),
     size: a.size,

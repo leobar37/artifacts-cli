@@ -30,6 +30,7 @@ export function buildRemoteCatalog(): RemoteCatalog {
         title: a.title,
         relativePath: a.relativePath,
         type: a.type,
+        format: a.format,
         createdAt: toIso(a.createdAt),
         modifiedAt: toIso(a.modifiedAt),
         size: a.size,

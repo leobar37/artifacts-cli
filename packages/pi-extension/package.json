@@ -1,7 +1,7 @@
 {
   "name": "@tarileo/artifact-omp",
-  "version": "0.1.3",
-  "description": "Pi/omp extension for artifact-cli: create + view HTML artifacts from the agent",
+  "version": "0.3.0",
+  "description": "Pi/omp extension for artifact-cli: create + view HTML/Markdown/MDX artifacts from the agent",
   "type": "module",
   "main": "./dist/index.js",
   "files": ["dist/"],

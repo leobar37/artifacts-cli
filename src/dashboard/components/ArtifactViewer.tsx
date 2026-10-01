@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Artifact, RemoteSummary } from '../../types/artifact.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
-import { eventsUrl, previewUrl, projectBase } from '../lib/project.js';
+import { eventsUrl, previewUrl, projectBase, artifactEntryFile } from '../lib/project.js';
 import { Maximize2, Minimize2, Box, AlertTriangle, RefreshCw, ServerOff } from 'lucide-react';
 
 export interface RemoteViewerContext {
@@ -53,11 +53,19 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
 
   const isOffline = !!remote && remote.remote.status === 'offline';
   const [refreshKey, setRefreshKey] = useState(0);
+  // Markdown previews are rendered by the server-side viewer page: pass the
+  // dashboard theme so reading follows it (re-read per render, no extra
+  // stateful hook applying global side effects).
+  const themeQuery =
+    artifact?.format === 'md' || artifact?.format === 'mdx'
+      ? `&theme=${document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'}`
+      : '';
   const previewSrc = artifact
     ? remote
-      ? previewUrl(remote.remoteId, remote.projectId, artifact.slug, `?v=${refreshKey}`)
-      : `${projectBase()}/artifacts/${artifact.slug}/index.html?v=${refreshKey}`
+      ? previewUrl(remote.remoteId, remote.projectId, artifact.slug, `?v=${refreshKey}${themeQuery}`, artifact.format)
+      : `${projectBase()}/artifacts/${artifact.slug}/${artifactEntryFile(artifact.format)}?v=${refreshKey}${themeQuery}`
     : null;
+
 
 
   const stretchHtmlArtifact = () => {

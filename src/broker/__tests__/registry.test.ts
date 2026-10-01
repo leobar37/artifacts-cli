@@ -15,7 +15,7 @@ const catalog = (names: string[] = ["site"]): RemoteCatalog => ({
     totalCount: 1,
     artifacts: [{
       slug: "demo", title: `Demo ${name}`, relativePath: "docs/artifacts/demo/index.html",
-      type: "study", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 10,
+      type: "study", format: "md", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 10,
     }],
   })),
 });

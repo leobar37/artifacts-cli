@@ -12,6 +12,7 @@ import { unregisterCommand } from "./commands/unregister.js";
 import { reloadCommand } from "./commands/reload.js";
 import { createCommand } from "./commands/create.js";
 import { urlCommand } from "./commands/url.js";
+import { capabilitiesCommand, guideCommand } from "./commands/capabilities.js";
 import { logsCommand } from "./commands/logs.js";
 import { brokerCommand } from "./commands/broker.js";
 import { agentCommand } from "./commands/agent.js";
@@ -26,7 +27,7 @@ const program = new Command();
 
 program
   .name("artifact")
-  .description("CLI for managing and viewing HTML artifacts")
+  .description("CLI for managing and viewing HTML/Markdown/MDX artifacts")
   .version(packageJson.version);
 initCommand(program);
 serveCommand(program);
@@ -37,6 +38,8 @@ unregisterCommand(program);
 reloadCommand(program);
 createCommand(program);
 urlCommand(program);
+capabilitiesCommand(program);
+guideCommand(program);
 logsCommand(program);
 brokerCommand(program);
 agentCommand(program);

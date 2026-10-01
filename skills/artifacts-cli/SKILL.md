@@ -1,12 +1,12 @@
 ---
 name: artifacts-cli
-description: Manage and preview HTML artifacts with the artifact CLI (single daemon on port 7000, per-project /p/<id> dashboard URLs). Use when working with docs/artifacts, previewing generated HTML artifacts in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
+description: Manage and preview HTML/Markdown/MDX artifacts with the artifact CLI (single daemon on port 7000, per-project /p/<id> dashboard URLs). Use when working with docs/artifacts, previewing generated artifacts (standalone HTML or the built-in markdown viewer) in the dashboard, or exposing the artifact viewer over LAN or Tailscale.
 ---
 
 # Artifacts CLI
 
-CLI + dashboard for managing and previewing HTML artifacts
-(`docs/artifacts/<slug>/index.html`).
+CLI + dashboard for managing and previewing artifacts — standalone HTML
+(`docs/artifacts/<slug>/index.html`) or Markdown/MDX (`index.md` / `index.mdx`).
 Published as `@tarileo/artifacts-cli`, binary `artifact`.
 
 ## Install
@@ -20,7 +20,8 @@ bun install -g @tarileo/artifacts-cli
 1. New project? Run `artifact init` once: it scaffolds `docs/artifacts/`
    and adds it to `.gitignore`.
 2. Every artifact lives in `docs/artifacts/<slug>/` with a standalone `index.html`
-   (Tailwind via CDN, Alpine for interactivity).
+   (Tailwind via CDN, Alpine for interactivity) or a Markdown/MDX document
+   (`index.md` / `index.mdx`) rendered by the built-in viewer.
 3. Ensure the daemon and open this project's dashboard:
    ```bash
    artifact start
@@ -28,7 +29,7 @@ bun install -g @tarileo/artifacts-cli
    This starts the shared daemon if needed (port 7000), registers the project,
    and opens its dashboard at `/p/<projectId>/`.
 4. Pick an artifact in the sidebar; it renders isolated in the viewer.
-   Edits to `index.html` hot-reload via file watcher + SSE.
+   Edits hot-reload via file watcher + SSE.
 5. Need one link with everything? The daemon root (`/`) shows all artifacts
    grouped by project. `artifact url` prints that link.
 
@@ -39,7 +40,9 @@ The essentials:
 
 ```bash
 artifact init
-artifact create <slug> [-t <title>] [--type <type>]   # scaffold index.html
+artifact create <slug> [-t <title>] [--type <type>] [--format html|md|mdx]   # scaffold entry file
+artifact capabilities [--json]    # formats, MDX components, mermaid, features (use --json from agents)
+artifact guide                    # open the live MDX guide in the browser
 artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]
 artifact serve [-p <port>] [--host <host>] [--tailscale]   # foreground daemon (systemd)
 artifact list
@@ -51,10 +54,25 @@ artifact logs [-n 100]     # read the daemon log
 ```
 ## Artifact conventions
 
-- Directory per artifact: `docs/artifacts/<slug>/` with `index.html` (standalone HTML).
-- Type detection: `<meta name="artifact-type" content="study|wireframe|generic">`,
+- Directory per artifact: `docs/artifacts/<slug>/` with `index.html`
+  (standalone HTML), `index.md` or `index.mdx` (Markdown/MDX).
+- Markdown/MDX: the server renders them into a self-contained viewer page —
+  GFM (tables, task lists), fenced code with syntax highlighting, theme that
+  follows the dashboard (`?theme=light|dark`), `?raw=1` for the plain source.
+  Frontmatter `title:`/`type:` feed the sidebar label and artifact type.
+  MDX built-in components — `Chart` (bar/line/area/pie, recharts SSR),
+  `Stats`+`Stat`, `Callout` — render for real when props are literals
+  (inline your data; `data={sales}` is a placeholder, not a chart).
+  `{/* comments */}` are hidden; unknown components show visible
+  placeholders. Mermaid diagrams: fenced blocks tagged `mermaid` render
+  client-side (flowchart, sequence, ER, gantt...); the source stays visible
+  if JS is unavailable. Live reference with working examples: `/mdx-guide`
+  (served by every daemon and broker; `artifact guide` opens it,
+  linked from the viewer bar).
+- Type detection (HTML): `<meta name="artifact-type" content="study|wireframe|generic">`,
   with heuristics fallback (`x-data` Alpine markers, `wireframe`/`mockup` keywords).
-- `<title>` becomes the sidebar label; newest-modified sorts first.
+- `<title>` (HTML), frontmatter `title:` or the first `# heading` (Markdown)
+  becomes the sidebar label; newest-modified sorts first.
 
 ## Exposing over the network
 
@@ -87,17 +105,60 @@ With `@tarileo/artifact-omp` linked (`omp plugin link ./packages/pi-extension`
 or `omp plugin install @tarileo/artifact-omp`), the agent NEVER writes
 `docs/artifacts/` by hand. Use these tools:
 
-- `artifact_create` — saves new HTML (creates `v001`).
-- `artifact_read` — reads `latest` (or `version` + `offset/limit` for large HTML files). Use it before editing.
-- `artifact_update` — saves edits as a new version. Pass the `baseVersion` from the read: if someone else touched the artifact meanwhile, it answers `CONFLICT` instead of overwriting.
-- `artifact_versions` — history for rollback (re-publish that HTML via `artifact_update`).
+- `artifact_create` — saves new content (creates `v001`): `content` plus
+  `format: html|md|mdx`. Markdown and MDX render in the built-in viewer;
+  prefer them for documents, reports and notes.
+- `artifact_read` — reads `latest` (or `version` + `offset/limit` for large files). Use it before editing.
+- `artifact_update` — saves edits as a new version. Pass the `baseVersion` from the read: if someone else touched the artifact meanwhile, it answers `CONFLICT` instead of overwriting. Omitting `format` keeps the artifact's current one.
+- `artifact_versions` — history for rollback (re-publish that version's content via `artifact_update`).
 - `artifact_list` — slugs in the current repo.
-
+- `artifact_show` — shareable dashboard link for an artifact (or the all-artifacts overview with no slug). ALWAYS use this when the user asks to see, show, open, or explain an artifact.
 Each `put` versions into the global store (`~/.artifact/store/<repoId>/`, same id
-across all your worktrees) and leaves `docs/artifacts/<slug>/index.html` as a symlink
+across all your worktrees) and leaves `docs/artifacts/<slug>/index.<ext>` as a symlink
 to `latest` — the dashboard and `Read` see it as a regular file.
 
 Direct reads without tools: `artifacts://<slug>` (latest) or
-`artifacts://<slug>/<version>` (e.g. `/v002`) via omp's read tool.
+`artifacts://<slug>/<version>` (e.g. `/v002`) via omp's read tool —
+`text/html` or `text/markdown` depending on the artifact's format.
 
 `docs/artifacts/` is git-ignored by design: the store is the source of truth.
+
+## Authoring markdown/mdx artifacts (for agents)
+
+You write the document; the dashboard's built-in viewer renders it. Full
+authoring reference with every component, prop table and copy-paste
+skeleton: [references/mdx-components.md](references/mdx-components.md).
+
+Decision rules:
+
+- Documents/reports/notes → `format: "md"`; add charts/KPIs/callouts → `"mdx"`.
+- Components: `<Chart type=bar|line|area|pie data={[…]} />`, `<Stats><Stat
+  value="…" label="…" delta="+…" /></Stats>`, `<Callout type=info|warning|
+  success|danger title="…">markdown children</Callout>`.
+- Diagrams: mermaid fences (```mermaid) — never ASCII art.
+- **Props must be literals**: inline the data (`data={[{ name: "Q1", v: 12 }]}`);
+  `data={identifier}` renders as a placeholder, and unknown components are
+  placeholders too. No imports: components are built-in.
+
+Before writing mdx, query the live capabilities (they match the installed
+version): `artifact_capabilities` (omp tool) or `artifact capabilities --json`.
+
+## Agent guidance: discover capabilities programmatically
+
+Before generating an artifact, check what the viewer supports:
+`artifact capabilities --json` — formats, components with props and
+examples, mermaid usage, features, and the live guide URL. Prefer
+markdown/mdx for documents; use `Chart`/`Stats`/`Callout` and mermaid
+fences instead of inventing custom components — unknown JSX renders as a
+placeholder, never a real widget. The same information, rendered with live
+examples, lives at `/mdx-guide` (`artifact guide`).
+
+## Presenting to the user (links, not file reads)
+
+When the user asks to see, show, open, or explain an artifact: call
+`artifact_show` (with the slug, or with no slug for the overview) and reply
+with the dashboard link. NEVER paste the full HTML/Markdown back and NEVER `Read`
+`docs/artifacts/<slug>/index.*` to answer — those files are symlinks into
+the store, and their content belongs in the dashboard, not the chat.
+`artifact_read` is for editing only. If `artifact_show` answers `NO_DAEMON`,
+tell the user to run `artifact start` first.

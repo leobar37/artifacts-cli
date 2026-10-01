@@ -1,9 +1,13 @@
+/** Storage format of the artifact bytes. Mirrors the store package contract. */
+export type ArtifactFormat = 'html' | 'md' | 'mdx';
+
 export interface Artifact {
   slug: string;
   title: string;
   path: string;
   relativePath: string;
   type: 'generic' | 'study' | 'wireframe' | 'unknown';
+  format: ArtifactFormat;
   createdAt: Date;
   modifiedAt: Date;
   size: number;
@@ -53,6 +57,7 @@ export interface ArtifactWire {
   title: string;
   relativePath: string;
   type: Artifact["type"];
+  format: ArtifactFormat;
   createdAt: string;
   modifiedAt: string;
   size: number;

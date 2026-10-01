@@ -18,8 +18,9 @@ beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), "art-proto-work-"));
   process.env.ARTIFACT_HOME = join(home, "store");
   const store = new LocalStore();
-  store.put(work, { slug: "demo", title: "Demo", html: "<h1>one</h1>" });
-  store.put(work, { slug: "demo", title: "Demo", html: "<h1>two</h1>" });
+  store.put(work, { slug: "demo", title: "Demo", content: "<h1>one</h1>" });
+  store.put(work, { slug: "demo", title: "Demo", content: "<h1>two</h1>" });
+  store.put(work, { slug: "notes", title: "Notes", content: "# Notes\n\n- item", format: "md" });
 });
 
 afterEach(() => {
@@ -32,7 +33,7 @@ describe("artifacts:// protocol", () => {
   it("resolves latest", async () => {
     const res = await artifactsProtocolHandler.resolve(url("artifacts://demo"), { cwd: work });
     expect(res.content).toBe("<h1>two</h1>");
-    expect(res.contentType).toBe("text/html");
+    expect(res.contentType).toBe("text/html; charset=utf-8");
   });
 
   it("resolves a pinned version", async () => {
@@ -42,6 +43,13 @@ describe("artifacts:// protocol", () => {
 
   it("rejects unknown slugs", async () => {
     await expect(artifactsProtocolHandler.resolve(url("artifacts://nope"), { cwd: work })).rejects.toThrow("Unknown artifact");
+  });
+
+  it("serves markdown artifacts as text/markdown", async () => {
+    const res = await artifactsProtocolHandler.resolve(url("artifacts://notes"), { cwd: work });
+    expect(res.content).toBe("# Notes\n\n- item");
+    expect(res.contentType).toBe("text/markdown; charset=utf-8");
+    expect(res.sourcePath).toContain("index.md");
   });
 
   it("rejects traversal and subpaths", async () => {

@@ -15,6 +15,7 @@ const ARTIFACT: Artifact = {
   path: "docs/artifacts/demo/index.html",
   relativePath: "docs/artifacts/demo/index.html",
   type: "study",
+  format: "html",
   createdAt: new Date(),
   modifiedAt: new Date(),
   size: 100,
@@ -93,6 +94,27 @@ describe("ArtifactViewer (broker mode)", () => {
     await waitFor(() => {
       expect(FakeEventSource.instances.map((i) => i.url)).toContain("/r/r-a/p/p1/api/events");
     });
+  });
+
+  it("points markdown artifacts at index.md with the dashboard theme", async () => {
+    const mdArtifact = { ...ARTIFACT, format: "md" as const };
+    render(
+      <ArtifactViewer
+        artifact={mdArtifact}
+        remote={{
+          remoteId: "r-a",
+          projectId: "p1",
+          remote: {
+            remoteId: "r-a", name: "ubuntu-dev", version: "v", status: "online",
+            lastSeenAt: new Date().toISOString(), projectCount: 1, artifactCount: 1,
+          },
+        }}
+      />,
+    );
+    const iframe = (await screen.findByTitle("Demo")) as HTMLIFrameElement;
+    const src = iframe.getAttribute("src") ?? "";
+    expect(src).toContain("/r/r-a/p/p1/artifacts/demo/index.md?");
+    expect(src).toMatch(/theme=(dark|light)/);
   });
 
   it("shows a visible error when the daemon is unreachable (timeout path)", async () => {

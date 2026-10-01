@@ -27,6 +27,7 @@ import {
 } from "../utils/projects.js";
 import { getProjectArtifactsPath } from "../utils/project.js";
 import type { ProjectEnv } from "../types/artifact.js";
+import { getMdxGuideSource, renderMarkdownViewer, serveMermaidAsset, type ViewerTheme } from "./markdown-viewer.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("server");
@@ -71,8 +72,9 @@ const ARTIFACT_MIME: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
-  ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
+  ".mdx": "text/markdown; charset=utf-8",
   ".map": "application/json; charset=utf-8",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
@@ -103,6 +105,9 @@ function bearerOk(header: string | null | undefined, expected: string): boolean 
  * Shared static-file responder with traversal protection. `requestPath` is
  * the already-parsed wildcard path under the project prefix; the caller
  * decides which route prefix to strip.
+ *
+ * Markdown artifacts (`index.md` / `index.mdx`) are rendered through the
+ * built-in markdown viewer page; `?raw=1` serves the plain source instead.
  */
 export function serveArtifactFile(c: Context, base: string, requestPath: string): Response {
   let raw: string;
@@ -134,7 +139,22 @@ export function serveArtifactFile(c: Context, base: string, requestPath: string)
     return c.text("Not found", 404);
   }
 
-  const mime = ARTIFACT_MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream";
+  const ext = path.extname(file).toLowerCase();
+  if ((ext === ".md" || ext === ".mdx") && c.req.query("raw") !== "1") {
+    const slug = segments[0] ?? path.basename(path.dirname(file));
+    const theme: ViewerTheme = c.req.query("theme") === "light" ? "light" : "dark";
+    const html = renderMarkdownViewer(readFileSync(file, "utf-8"), {
+      slug,
+      format: ext === ".mdx" ? "mdx" : "md",
+      theme,
+      relativePath: path.join("docs", "artifacts", ...segments),
+    });
+    return new Response(html, {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
+  const mime = ARTIFACT_MIME[ext] ?? "application/octet-stream";
   return new Response(readFileSync(file), {
     headers: { "Content-Type": mime },
   });
@@ -303,12 +323,27 @@ export async function createArtifactServer(
 
     app.route("/p/:projectId", projectApp);
 
+    // Component guide rendered through the same viewer as .mdx artifacts.
+    app.get("/mdx-guide", (c) => {
+      const theme: ViewerTheme = c.req.query("theme") === "light" ? "light" : "dark";
+      return c.html(
+        renderMarkdownViewer(getMdxGuideSource(), { slug: "mdx-guide", format: "mdx", theme }),
+        200,
+        { "Cache-Control": "no-store" },
+      );
+    });
+    // Client-side mermaid bundle for markdown/mdx diagrams (same origin).
+    app.get("/assets/mermaid.min.js", () => serveMermaidAsset());
+
     if (serveDashboard) {
       const dashboardPath = path.join(__dirname, "../../dist/dashboard");
       app.use("/*", serveStatic({ root: dashboardPath }));
       app.get("*", async (c) => {
         const fs = await import("fs");
         const html = fs.readFileSync(path.join(dashboardPath, "index.html"), "utf-8");
+        // Never cache the SPA shell: a stale index.html points at a deleted
+        // hashed bundle (blank page) or an app without new query support (?select=).
+        c.header("Cache-Control", "no-store");
         return c.html(html);
       });
     }
@@ -339,8 +374,12 @@ export async function createArtifactServer(
       const srv = serve(
         { fetch: app.fetch, port, hostname: bindHost },
         () => {
-          log.info(`Server (${role}) running at http://${bindHost}:${port}`);
-          resolve({ srv: srv as unknown as Server, bound: port });
+          // Report the bound port: port 0 lets the OS pick (ephemeral), and
+          // the EADDRINUSE retry path binds port + 1.
+          const address = srv.address();
+          const bound = address && typeof address === "object" ? address.port : port;
+          log.info(`Server (${role}) running at http://${bindHost}:${bound}`);
+          resolve({ srv: srv as unknown as Server, bound });
         },
       );
       srv.on("error", (err: NodeJS.ErrnoException) => {

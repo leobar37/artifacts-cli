@@ -50,8 +50,15 @@ export function ArtifactCard({ artifact, onClick, isSelected }: ArtifactCardProp
         <h3 className={`text-sm font-medium leading-snug line-clamp-2 flex-1 transition-colors ${isSelected ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
           {artifact.title}
         </h3>
-        <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${typeColors[artifact.type]}`}>
-          {typeLabels[artifact.type]}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {artifact.format && artifact.format !== 'html' && (
+            <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-text-muted">
+              {artifact.format}
+            </span>
+          )}
+          <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${typeColors[artifact.type]}`}>
+            {typeLabels[artifact.type]}
+          </span>
         </span>
       </div>
 

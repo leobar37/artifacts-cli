@@ -1,18 +1,23 @@
-import type { ArtifactEntry, ArtifactType, RepoManifest } from "./manifest.js";
+import type { ArtifactEntry, ArtifactFormat, ArtifactType, RepoManifest } from "./manifest.js";
 
 export interface ArtifactContent {
   slug: string;
   title: string;
   type: ArtifactType;
+  format: ArtifactFormat;
   version: string;
   sha: string;
-  html: string;
+  /** Canonical source text: standalone HTML, Markdown or MDX. */
+  content: string;
 }
 
 export interface PutInput {
   slug: string;
   title: string;
-  html: string;
+  /** Source text: standalone HTML, Markdown or MDX. */
+  content: string;
+  /** Storage format. Omitted = keep the previous one (html for new slugs). */
+  format?: ArtifactFormat;
   type?: ArtifactType;
 }
 

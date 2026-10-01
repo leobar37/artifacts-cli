@@ -6,6 +6,7 @@
  * `/r/<remoteId>/p/<projectId>/` routes. No React Router — full-page
  * navigation is sufficient.
  */
+import type { ArtifactFormat } from '../../types/artifact.js';
 
 export interface DashboardRoute {
   mode: "root" | "local" | "remote";
@@ -59,9 +60,20 @@ export function remoteApiUrl(remoteId: string, projectId: string, path: string):
   return `${remoteScope(remoteId, projectId)}/api${path}`;
 }
 
-/** Same-origin preview URL for an artifact's index.html (plus query). */
-export function previewUrl(remoteId: string, projectId: string, slug: string, query = ""): string {
-  return `${remoteScope(remoteId, projectId)}/artifacts/${encodeURIComponent(slug)}/index.html${query}`;
+/** Entry filename inside docs/artifacts/<slug>/ for each storage format. */
+export function artifactEntryFile(format: ArtifactFormat = 'html'): string {
+  return format === 'md' ? 'index.md' : format === 'mdx' ? 'index.mdx' : 'index.html';
+}
+
+/** Same-origin preview URL for an artifact's entry file (plus query). */
+export function previewUrl(
+  remoteId: string,
+  projectId: string,
+  slug: string,
+  query = "",
+  format: ArtifactFormat = 'html',
+): string {
+  return `${remoteScope(remoteId, projectId)}/artifacts/${encodeURIComponent(slug)}/${artifactEntryFile(format)}${query}`;
 }
 
 /** Same-origin SSE URL for a remote project. */

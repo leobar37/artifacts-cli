@@ -16,6 +16,7 @@ import {
 } from "./remote-registry.js";
 import { HEARTBEAT_INTERVAL_MS } from "../utils/broker-config.js";
 import type { StoredRemoteEntry } from "../types/artifact.js";
+import { getMdxGuideSource, renderMarkdownViewer, serveMermaidAsset, type ViewerTheme } from "../server/markdown-viewer.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("broker");
@@ -233,6 +234,19 @@ export async function startBrokerServer(options: BrokerServerOptions): Promise<R
       // No total-body timeout for SSE; abort upstream on browser disconnect.
       return proxyRequest(c, entry, upstreamUrl, "GET", 0);
     });
+
+    // Same MDX component guide the local daemon serves.
+    app.get("/mdx-guide", (c) => {
+      const theme: ViewerTheme = c.req.query("theme") === "light" ? "light" : "dark";
+      return c.html(
+        renderMarkdownViewer(getMdxGuideSource(), { slug: "mdx-guide", format: "mdx", theme }),
+        200,
+        { "Cache-Control": "no-store" },
+      );
+    });
+    // Same mermaid bundle the local daemon serves (broker origin = viewer origin).
+    app.get("/assets/mermaid.min.js", () => serveMermaidAsset());
+
 
     // --- Dashboard (same build; SPA fallback covers /r/... deep links) --------
     const dashboardPath = path.join(__dirname, "../../dist/dashboard");

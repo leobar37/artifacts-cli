@@ -11,6 +11,9 @@ const log = createLogger('cli:create');
 const VALID_TYPES = ['generic', 'study', 'wireframe'] as const;
 type ArtifactKind = (typeof VALID_TYPES)[number];
 
+const VALID_FORMATS = ['html', 'md', 'mdx'] as const;
+type ArtifactFormat = (typeof VALID_FORMATS)[number];
+
 /** Slugs are kebab-case directory names. */
 export function isValidSlug(slug: string): boolean {
   return /^[a-z0-9][a-z0-9-]*$/.test(slug);
@@ -39,14 +42,29 @@ export function buildHtmlTemplate(title: string, type: ArtifactKind): string {
 `;
 }
 
+/** Markdown scaffold: frontmatter carries title/type, body starts the doc. */
+export function buildMarkdownTemplate(title: string, type: ArtifactKind, format: 'md' | 'mdx'): string {
+  const head = format === 'mdx' ? 'import { Chart } from "./components"\n\n' : '';
+  return `---
+title: ${title}
+type: ${type}
+---
+
+${head}# ${title}
+
+Write here. GFM tables, task lists and fenced code render in the dashboard viewer.
+`;
+}
+
 export function createCommand(program: Command) {
   program
     .command('create')
-    .description('Scaffold a new HTML artifact')
+    .description('Scaffold a new artifact (HTML by default, or Markdown/MDX with --format)')
     .argument('<slug>', 'kebab-case id, e.g. auth-summary')
     .option('-t, --title <title>', 'Human-readable title (defaults to the slug)')
     .option('--type <type>', 'Artifact type: generic|study|wireframe (default generic)')
-    .option('--force', 'Overwrite index.html if it already exists')
+    .option('--format <format>', 'Storage format: html|md|mdx (default html)')
+    .option('--force', 'Overwrite the entry file if it already exists')
     .action(async (slug: string, options) => {
       if (!isValidSlug(slug)) {
         log.error(`✗ Invalid slug "${slug}". Use kebab-case: lowercase letters, numbers, hyphens.`);
@@ -59,10 +77,16 @@ export function createCommand(program: Command) {
         process.exit(1);
       }
 
+      const format = (options.format ?? 'html') as ArtifactFormat;
+      if (!(VALID_FORMATS as readonly string[]).includes(format)) {
+        log.error(`✗ Invalid format "${format}". Must be one of: ${VALID_FORMATS.join(', ')}`);
+        process.exit(1);
+      }
+
       const cwd = process.cwd();
       const title = options.title ?? humanizeSlug(slug);
       const dir = path.join(getProjectArtifactsPath(cwd), slug);
-      const file = path.join(dir, 'index.html');
+      const file = path.join(dir, `index.${format}`);
 
       if (existsSync(file) && !options.force) {
         log.error(`✗ ${path.relative(cwd, file)} already exists. Use --force to overwrite.`);
@@ -70,7 +94,11 @@ export function createCommand(program: Command) {
       }
 
       mkdirSync(dir, { recursive: true });
-      writeFileSync(file, buildHtmlTemplate(title, type as ArtifactKind));
+      const template =
+        format === 'html'
+          ? buildHtmlTemplate(title, type as ArtifactKind)
+          : buildMarkdownTemplate(title, type as ArtifactKind, format);
+      writeFileSync(file, template);
 
       registerProject(cwd);
       await notifyDaemon(cwd);

@@ -1,5 +1,8 @@
 export type ArtifactType = "generic" | "study" | "wireframe";
 
+/** Storage format of the artifact bytes. `html` is the legacy default. */
+export type ArtifactFormat = "html" | "md" | "mdx";
+
 export interface ArtifactVersion {
   version: string;
   sha: string;
@@ -11,6 +14,8 @@ export interface ArtifactEntry {
   slug: string;
   title: string;
   type: ArtifactType;
+  /** Absent in pre-format manifests: read as "html". */
+  format?: ArtifactFormat;
   latest: string;
   originBranch: string | null;
   originWorktree: string | null;

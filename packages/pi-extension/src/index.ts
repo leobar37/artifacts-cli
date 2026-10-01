@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { LocalStore } from "@tarileo/artifact-store";
+import { LocalStore, getViewerCapabilities } from "@tarileo/artifact-store";
 import type { ArtifactEntry } from "@tarileo/artifact-store";
+import { NO_DAEMON_HINT, buildLinks, getProjectId, readDaemon, resolveDashboard, slugify, viewLine } from "./dashboard.js";
 
 interface ToolContext {
   cwd: string;
@@ -44,6 +45,21 @@ interface Pi {
   ) => void;
 }
 
+type ArtifactFormat = "html" | "md" | "mdx";
+
+/** Accept the "markdown" alias agents naturally type; anything else fails loud. */
+function normalizeFormat(raw: string): ArtifactFormat {
+  if (raw === "markdown") return "md";
+  if (raw === "html" || raw === "md" || raw === "mdx") return raw;
+  throw new Error(`Unknown artifact format "${raw}". Use html, md or mdx.`);
+}
+
+/** Docs entry filename per format (also the symlink the store leaves behind). */
+function entryFile(format: ArtifactFormat): string {
+  return format === "md" ? "index.md" : format === "mdx" ? "index.mdx" : "index.html";
+}
+
+
 const store = new LocalStore();
 
 /**
@@ -68,10 +84,10 @@ const artifactsProtocolHandler = {
     if (!found) throw new Error(`Unknown artifact: ${slug}${version ? `@${version}` : ""}`);
     return {
       url: url.href,
-      content: found.html,
-      contentType: "text/html",
-      size: Buffer.byteLength(found.html, "utf-8"),
-      sourcePath: `${store.dirFor(cwd).dir}/${found.slug}/index.html`,
+      content: found.content,
+      contentType: found.format === "html" ? "text/html; charset=utf-8" : "text/markdown; charset=utf-8",
+      size: Buffer.byteLength(found.content, "utf-8"),
+      sourcePath: `${store.dirFor(cwd).dir}/${found.slug}/${entryFile(found.format)}`,
       notes: [],
     };
   },
@@ -91,23 +107,6 @@ async function tryRegisterArtifactsProtocol(): Promise<void> {
 }
 
 
-const createSchema = z.object({
-  slug: z.string(),
-  title: z.string(),
-  html: z.string(),
-  type: z.enum(["generic", "study", "wireframe"]).default("generic"),
-});
-
-function slugify(raw: string): string {
-  return raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
 export default function (pi: Pi) {
   pi.setLabel("Artifact CLI");
   void tryRegisterArtifactsProtocol();
@@ -119,24 +118,28 @@ export default function (pi: Pi) {
     name: "artifact_create",
     label: "Artifact Create",
     description:
-      "Save HTML as a versioned artifact outside git and return path + version. ALWAYS use it instead of writing docs/artifacts by hand.",
+      "Save an artifact (standalone HTML, or Markdown/MDX with format=md|mdx) outside git and return path + version + shareable dashboard view link. For documents prefer md, or mdx when it needs charts/KPIs/callouts/mermaid — call artifact_capabilities first for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       title: z.string().describe("Human-readable title"),
-      html: z.string().describe("Complete standalone HTML"),
+      content: z.string().describe("Complete source: standalone HTML, or Markdown/MDX when format is md/mdx"),
+      format: z.enum(["html", "md", "markdown", "mdx"]).default("html").describe("storage format: html (default), md/markdown, mdx"),
       type: z.string().default("generic").optional().describe("generic|study|wireframe"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
-      const input = createSchema.parse(params);
+      const input = params as { slug: string; title: string; content: string; format?: string; type?: string };
       const slug = slugify(input.slug);
+      const format = normalizeFormat(input.format ?? "html");
       const result = store.put(ctx.cwd, {
         slug,
         title: input.title,
-        html: input.html,
-        type: input.type,
+        content: input.content,
+        format,
+        type: (input.type ?? "generic") as "generic" | "study" | "wireframe",
       });
-      const text = `OK ${result.slug}@${result.version}\nfile: ${result.filePath}\nrepo: ${result.repoId}`;
-      return { content: [{ type: "text", text }], details: result };
+      const view = viewLine(ctx.cwd, result.slug);
+      const text = `OK ${result.slug}@${result.version} (${format})\nfile: ${result.filePath}\nrepo: ${result.repoId}\n${view ? `view: ${view}` : NO_DAEMON_HINT}`;
+      return { content: [{ type: "text", text }], details: { ...result, format, view: view || undefined } };
     },
   });
 
@@ -144,11 +147,11 @@ export default function (pi: Pi) {
     name: "artifact_read",
     label: "Artifact Read",
     description:
-      "Read an artifact's current content (or a specific version). Use it before editing to work on top of latest.",
+      "Read an artifact's source (HTML, Markdown or MDX) for editing (paging with offset/limit for large files). Use it before editing to work on top of latest. NEVER use it to show content to the user — to present an artifact, call artifact_show and reply with the dashboard link.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       version: z.string().optional().describe("e.g. v002. No version = latest"),
-      offset: z.number().int().min(0).default(0).describe("start line (large HTML files)"),
+      offset: z.number().int().min(0).default(0).describe("start line (large files)"),
       limit: z.number().int().min(1).max(500).default(200).describe("max lines"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
@@ -158,9 +161,9 @@ export default function (pi: Pi) {
         const text = `NOT_FOUND ${slug}${version ? `@${version}` : ""}`;
         return { content: [{ type: "text", text }], details: { found: false } };
       }
-      const lines = found.html.split("\n");
+      const lines = found.content.split("\n");
       const slice = lines.slice(offset, offset + limit).join("\n");
-      const text = `${found.slug}@${found.version} (${found.title}, sha ${found.sha})\nfile: ${store.dirFor(ctx.cwd).dir}/${found.slug}/index.html\n---\n${slice}`;
+      const text = `${found.slug}@${found.version} (${found.title}, ${found.format}, sha ${found.sha})\nfile: ${store.dirFor(ctx.cwd).dir}/${found.slug}/${entryFile(found.format)}\n---\n${slice}`;
       return { content: [{ type: "text", text }], details: { ...found, totalLines: lines.length } };
     },
   });
@@ -169,14 +172,15 @@ export default function (pi: Pi) {
     name: "artifact_update",
     label: "Artifact Update",
     description:
-      "Edit an artifact by saving a new version (never rewrites). Pass baseVersion from artifact_read; if someone else touched it meanwhile, it reports a conflict instead of overwriting.",
+      "Edit an artifact by saving a new version (never rewrites). Pass baseVersion from artifact_read; if someone else touched it meanwhile, it reports a conflict instead of overwriting. Share the returned view link with the user; never paste the content back.",
     parameters: z.object({
       slug: z.string().describe("existing kebab-case"),
-      html: z.string().describe("Updated complete HTML"),
+      content: z.string().describe("Updated complete source (HTML, Markdown or MDX matching the artifact's format)"),
       baseVersion: z.string().optional().describe("version seen in artifact_read, e.g. v002"),
+      format: z.enum(["html", "md", "markdown", "mdx"]).optional().describe("switch storage format; omit to keep the current one"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
-      const { slug, html, baseVersion } = params as { slug: string; html: string; baseVersion?: string };
+      const { slug, content, baseVersion, format } = params as { slug: string; content: string; baseVersion?: string; format?: string };
       const clean = slugify(slug);
       const current = store.get(ctx.cwd, clean);
       if (!current) {
@@ -187,9 +191,11 @@ export default function (pi: Pi) {
         const text = `CONFLICT ${clean}: latest is ${current.version}, your base was ${baseVersion}. Read again with artifact_read and retry.`;
         return { content: [{ type: "text", text }], details: { updated: false, conflict: true, latest: current.version } };
       }
-      const result = store.put(ctx.cwd, { slug: clean, title: current.title, html, type: current.type });
-      const text = `OK ${result.slug}@${result.version}\nfile: ${result.filePath}\nrepo: ${result.repoId}`;
-      return { content: [{ type: "text", text }], details: result };
+      const nextFormat = format ? normalizeFormat(format) : current.format;
+      const result = store.put(ctx.cwd, { slug: clean, title: current.title, content, format: nextFormat, type: current.type });
+      const view = viewLine(ctx.cwd, result.slug);
+      const text = `OK ${result.slug}@${result.version}\nfile: ${result.filePath}\nrepo: ${result.repoId}\n${view ? `view: ${view}` : NO_DAEMON_HINT}`;
+      return { content: [{ type: "text", text }], details: { ...result, view: view || undefined } };
     },
   });
 
@@ -224,10 +230,84 @@ export default function (pi: Pi) {
     },
   });
 
+  pi.registerTool({
+    name: "artifact_show",
+    label: "Artifact Show",
+    description:
+      "Get the shareable dashboard link for an artifact (or the all-artifacts overview when no slug is given). ALWAYS use this when the user asks to see, show, open, or explain an artifact — reply with the link, never paste full HTML and never Read the file.",
+    parameters: z.object({
+      slug: z.string().optional().describe("kebab-case, e.g. auth-summary. Omit for the overview link."),
+    }),
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      const { slug } = params as { slug?: string };
+      if (slug) {
+        const clean = slugify(slug);
+        if (!store.get(ctx.cwd, clean)) {
+          const text = `NOT_FOUND ${clean}. Use artifact_list to see available slugs.`;
+          return { content: [{ type: "text", text }], details: { found: false } };
+        }
+        const resolved = await resolveDashboard(ctx.cwd, clean);
+        if (!resolved.ok) return { content: [{ type: "text", text: resolved.error }], details: { found: true, daemon: false } };
+        const text = `OK ${clean}\nartifact: ${resolved.links.artifact}\nproject: ${resolved.links.project}\noverview: ${resolved.links.overview}`;
+        return { content: [{ type: "text", text }], details: { found: true, slug: clean, ...resolved.links } };
+      }
+      const resolved = await resolveDashboard(ctx.cwd);
+      if (!resolved.ok) return { content: [{ type: "text", text: resolved.error }], details: { daemon: false } };
+      const text = `OK overview: ${resolved.links.overview}\nproject: ${resolved.links.project}`;
+      return { content: [{ type: "text", text }], details: { ...resolved.links } };
+    },
+  });
+
+  pi.registerTool({
+    name: "artifact_capabilities",
+    label: "Artifact Capabilities",
+    description:
+      "What the artifact dashboard can render BEFORE you generate one: supported formats (html|md|mdx), the built-in MDX components with props and examples (Chart, Stats, Stat, Callout), mermaid fence usage and viewer features. Call this before writing an mdx artifact; unknown components render as placeholders, and props must be literals (inline your data).",
+    parameters: z.object({}),
+    async execute(_id, _params, _signal, _onUpdate, _ctx) {
+      const caps = getViewerCapabilities();
+      const daemon = readDaemon();
+      const guideUrl = daemon ? `http://${daemon.host}:${daemon.port}${caps.guidePath}` : null;
+      const summary = [
+        `formats: ${caps.formats.map((f) => f.format).join(" | ")}`,
+        `components: ${caps.components.map((c) => `${c.name}(${c.props.map((p) => p.name).join(", ")})`).join(" · ")}`,
+        `mermaid: fences tagged mermaid`,
+        `guide: ${guideUrl ?? "start the daemon (artifact start) then open /mdx-guide"}`,
+      ].join("\n");
+      return {
+        content: [{ type: "text", text: `OK\n${summary}\n\nFull details in the JSON payload.` }],
+        details: { ...caps, guideUrl },
+      };
+    },
+  });
+
   pi.registerCommand("artifact", {
-    description: "Create or list artifacts: /artifact list",
+    description: "Show artifact dashboard links: /artifact show [slug] · /artifact list",
     handler: async (args, ctx) => {
-      ctx.ui.notify(`artifact ${args.trim() || "list"}`, "info");
+      const [sub, rest] = args.trim().split(/\s+/, 2);
+      if (!sub || sub === "list") {
+        const items = store.list(ctx.cwd);
+        const daemon = readDaemon();
+        const overview = daemon ? buildLinks(daemon.host, daemon.port, getProjectId(ctx.cwd)).overview : NO_DAEMON_HINT;
+        const names = items.map((i) => `${i.slug}${i.format && i.format !== "html" ? `[${i.format}]` : ""}`).join(", ") || "(no artifacts yet)";
+        ctx.ui.notify(`${items.length} artifact(s): ${names}\noverview: ${overview}`, "info");
+        return;
+      }
+      if (sub === "show") {
+        const slug = rest ? slugify(rest) : undefined;
+        if (slug && !store.get(ctx.cwd, slug)) {
+          ctx.ui.notify(`NOT_FOUND ${slug}`, "error");
+          return;
+        }
+        const resolved = await resolveDashboard(ctx.cwd, slug);
+        if (!resolved.ok) {
+          ctx.ui.notify(resolved.error, "error");
+          return;
+        }
+        ctx.ui.notify(slug ? resolved.links.artifact ?? resolved.links.project : resolved.links.overview, "info");
+        return;
+      }
+      ctx.ui.notify("Usage: /artifact show [slug] · /artifact list", "error");
     },
   });
 }

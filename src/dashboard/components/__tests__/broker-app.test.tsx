@@ -36,7 +36,7 @@ const OVERVIEW: RemoteOverviewGroup[] = [
       totalCount: 1,
       artifacts: [{
         slug: "demo", title: "Shop demo", relativePath: "docs/artifacts/demo/index.html",
-        type: "study", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 120,
+        type: "study", format: "md", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 120,
       }],
     }],
   },
@@ -47,7 +47,7 @@ const OVERVIEW: RemoteOverviewGroup[] = [
       totalCount: 1,
       artifacts: [{
         slug: "hello", title: "Hello", relativePath: "docs/artifacts/hello/index.html",
-        type: "generic", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 60,
+        type: "generic", format: "html", createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString(), size: 60,
       }],
     }],
   },

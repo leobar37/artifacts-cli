@@ -32,9 +32,9 @@ beforeAll(async () => {
 
   // Real flow: the agent saves versioned artifacts and the links show up in docs/
   const store = new LocalStore();
-  const putA = store.put(projectA, { slug: "demo", title: "Demo A", html: HTML_A, type: "study" });
+  const putA = store.put(projectA, { slug: "demo", title: "Demo A", content: HTML_A, type: "study" });
   expect(putA.version).toBe("v001");
-  const putB = store.put(projectB, { slug: "demo", title: "Demo B", html: HTML_B, type: "study" });
+  const putB = store.put(projectB, { slug: "demo", title: "Demo B", content: HTML_B, type: "study" });
   expect(putB.version).toBe("v001");
 
   idA = registerProject(projectA).projectId;

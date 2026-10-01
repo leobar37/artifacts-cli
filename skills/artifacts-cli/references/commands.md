@@ -77,6 +77,25 @@ Print the dashboard link. Without args: the daemon root (`/`), which shows
 every artifact of every registered project grouped by project — the one link
 to share. With a project id: that project's dashboard (`/p/<id>/`).
 
+## `artifact capabilities [--json]`
+
+Print what the viewer supports: artifact formats (`html|md|mdx`), the built-in
+MDX components with their props (`Chart`, `Stats`, `Stat`, `Callout`), mermaid
+fences and viewer features. `--json` emits machine-readable output (same shape
+for agents and scripts) and includes the live `/mdx-guide` URL when the daemon
+is running.
+
+```bash
+artifact capabilities          # human table
+artifact capabilities --json   # for agents: formats, components, mermaid, features, guideUrl
+```
+
+## `artifact guide`
+
+Open the live MDX guide in your browser (formats, components with working
+examples, mermaid diagrams). Requires the daemon (`artifact start`); prints
+the URL either way.
+
 ## `artifact logs [-n 100] [-f]`
 
 Print the daemon log (`~/.artifact/daemon.log`, rotated at 1 MB). `-f`
