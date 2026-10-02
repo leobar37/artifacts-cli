@@ -19,6 +19,14 @@ Documents, reports, notes → plain `.md`. Documents that need **charts,
 KPIs or callouts** → `.mdx` with the components below.
 </Callout>
 
+<Callout type="warning" title="Relevance filter — apply before any visual">
+Components are information tools, not decoration. **Default to prose.** A
+diagram must show real structure (3+ interacting steps/actors, architecture,
+states); a chart needs **real data — never invent numbers** to justify one.
+One diagram per document, and if the text has to explain the visual, drop
+the visual.
+</Callout>
+
 ## Charts — `Chart` (rendered with recharts)
 
 `type` is one of `bar` (default), `line`, `area` or `pie`. `data` is an array

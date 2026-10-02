@@ -28,6 +28,8 @@ export interface ViewerCapabilities {
   formats: FormatDoc[];
   components: ComponentDoc[];
   features: string[];
+  /** Editorial guardrails so agents don't decorate documents with visuals. */
+  usageGuidance: string[];
   mermaid: {
     supported: true;
     usage: string;
@@ -109,6 +111,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
       'MDX: props must be literals (viewer executes no code); unknown components render as visible placeholders',
       'versioned store: artifact_create/artifact_update create v001, v002...',
     ],
+    usageGuidance: usageGuidance(),
     mermaid: {
       supported: true,
       usage: 'fenced code block with language `mermaid` (flowchart, sequence, class, state, er, gantt, pie, ...)',
@@ -117,6 +120,15 @@ export function getViewerCapabilities(): ViewerCapabilities {
     guidePath: '/mdx-guide',
     cliCommand: 'artifact capabilities [--json]',
   };
+}
+
+function usageGuidance(): string[] {
+  return [
+    'Default to prose: a visual must do work text cannot.',
+    'Diagram only for real structure (3+ interacting steps/actors, architecture, state transitions) — one per document max.',
+    'Chart only with REAL data from the task/repo/conversation; never invent numbers to justify a chart.',
+    'Linear steps -> numbered list; comparison -> table; anything explainable in a sentence -> prose.',
+  ];
 }
 
 /** Human-readable rendering for `artifact capabilities`. */
@@ -138,6 +150,10 @@ export function formatCapabilitiesText(caps: ViewerCapabilities, guideUrl: strin
   lines.push('', 'Viewer features');
   for (const feat of caps.features) {
     lines.push(`  - ${feat}`);
+  }
+  lines.push('', 'Usage guidance (relevance filter)');
+  for (const rule of caps.usageGuidance) {
+    lines.push(`  - ${rule}`);
   }
   lines.push('', `Live guide: ${guideUrl ?? `not running — start it with artifact start, then open ${caps.guidePath}`}`);
   lines.push('Machine-readable: artifact capabilities --json');

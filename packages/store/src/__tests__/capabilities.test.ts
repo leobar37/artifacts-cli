@@ -20,6 +20,13 @@ describe('getViewerCapabilities', () => {
     expect(caps.mermaid.usage).toContain('mermaid');
     expect(caps.guidePath).toBe('/mdx-guide');
   });
+
+  it('ships the relevance-filter guidance agents must apply', () => {
+    const guidance = getViewerCapabilities().usageGuidance.join(' ').toLowerCase();
+    expect(guidance).toContain('default to prose');
+    expect(guidance).toContain('never invent');
+    expect(guidance).toContain('one per document');
+  });
 });
 
 describe('formatCapabilitiesText', () => {
@@ -28,6 +35,7 @@ describe('formatCapabilitiesText', () => {
     expect(text).toContain('Formats');
     expect(text).toContain('Chart');
     expect(text).toContain('mermaid');
+    expect(text).toContain('Usage guidance (relevance filter)');
     expect(text).toContain('http://localhost:7000/mdx-guide');
     expect(text).toContain('--json');
   });

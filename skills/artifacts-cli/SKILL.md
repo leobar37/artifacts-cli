@@ -139,6 +139,11 @@ Decision rules:
 - **Props must be literals**: inline the data (`data={[{ name: "Q1", v: 12 }]}`);
   `data={identifier}` renders as a placeholder, and unknown components are
   placeholders too. No imports: components are built-in.
+- **Relevance filter (default: prose)** — a visual must do work text cannot:
+  diagram only for real structure (3+ interacting steps/actors, architecture,
+  states), chart only with REAL data (never invent numbers to justify one).
+  One diagram per document max; skip decorative visuals. Full filter:
+  [references/mdx-components.md](references/mdx-components.md).
 
 Before writing mdx, query the live capabilities (they match the installed
 version): `artifact_capabilities` (omp tool) or `artifact capabilities --json`.

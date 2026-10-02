@@ -27,12 +27,30 @@ with the installed version.
 6. Lowercase HTML tags (`<details>`, `<b>`) pass through as normal markdown
    HTML; capitalized tags are components.
 
+## Relevance filter — apply BEFORE any visual
+
+Components and diagrams are **information tools, not decoration**. The
+default document is prose; a visual must do work text cannot.
+
+**A diagram earns its place only when it shows structure**: 3+ interacting
+steps or actors, architecture with relations, state transitions, branching
+decisions. Otherwise skip it: linear steps → numbered list, comparison →
+table, everything else → prose.
+
+**A chart requires REAL data** — numbers you actually have from the
+conversation, the repo, or the task. **Never invent plausible numbers to
+justify a chart.** No real data → no chart.
+
+Hard limits: **one diagram per document** (unless the document is itself
+architecture/flow documentation), and if the surrounding text has to explain
+the visual, the visual should not exist.
+
 ## Choosing the format
 
 | Need | Format |
 | --- | --- |
 | Notes, reports, specs, any prose | `md` |
-| Same + charts, KPIs, callouts, diagrams as components | `mdx` |
+| Same + a visual that passed the filter above | `mdx` |
 | Truly interactive / self-contained page | `html` (last resort) |
 
 ## Frontmatter (both md and mdx)
@@ -120,7 +138,8 @@ flowchart LR
 Supported: flowchart, sequence, class, state, ER, gantt, pie, journey,
 mindmap, gitGraph… (whatever the installed mermaid supports). Rendered
 client-side; if scripts are unavailable the raw source stays visible.
-**Prefer mermaid over ASCII diagrams** — always.
+If a diagram passed the relevance filter, render it as a mermaid fence —
+never as ASCII art.
 
 ## Plain markdown you can rely on (GFM)
 
@@ -142,6 +161,9 @@ client-side; if scripts are unavailable the raw source stays visible.
 
 ## Copy-paste skeleton
 
+Minimal on purpose — add visuals only when they pass the relevance filter,
+using the examples above:
+
 ```mdx
 ---
 title: Q3 Report
@@ -152,35 +174,10 @@ type: study
 
 One-paragraph TL;DR with **key numbers**.
 
-<Stats>
-  <Stat value="14.9k" label="MRR" delta="+24%" />
-  <Stat value="1.4%" label="Churn" delta="-0.5pp" />
-</Stats>
-
 ## Detail
 
-<Chart
-  type="line"
-  title="Weekly active agents"
-  data={[
-    { week: "W1", sessions: 38 },
-    { week: "W2", sessions: 44 },
-    { week: "W3", sessions: 51 },
-  ]}
-  x="week"
-/>
-
-```mermaid
-sequenceDiagram
-  participant A as Agent
-  participant D as Dashboard
-  A->>D: artifact_show(slug)
-  D-->>A: view link
-```
-
-<Callout type="info" title="Next steps">
-  Anything markdown works **in here** — [links](https://example.com), lists, `code`.
-</Callout>
+Prose. A table if comparing, a numbered list for steps. One diagram ONLY if
+there is real structure (3+ steps/actors), one chart ONLY with real data.
 
 | Metric | Q2 | Q3 |
 | --- | ---: | ---: |

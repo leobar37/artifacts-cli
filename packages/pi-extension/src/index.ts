@@ -118,7 +118,7 @@ export default function (pi: Pi) {
     name: "artifact_create",
     label: "Artifact Create",
     description:
-      "Save an artifact (standalone HTML, or Markdown/MDX with format=md|mdx) outside git and return path + version + shareable dashboard view link. For documents prefer md, or mdx when it needs charts/KPIs/callouts/mermaid — call artifact_capabilities first for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
+      "Save an artifact (standalone HTML, or Markdown/MDX with format=md|mdx) outside git and return path + version + shareable dashboard view link. For documents prefer md — choose mdx only when a visual genuinely adds information (real structure for a diagram, REAL data for a chart; never invent numbers, max one diagram per document). Call artifact_capabilities for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       title: z.string().describe("Human-readable title"),
