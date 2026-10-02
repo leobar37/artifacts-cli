@@ -139,6 +139,11 @@ Decision rules:
 - **Props must be literals**: inline the data (`data={[{ name: "Q1", v: 12 }]}`);
   `data={identifier}` renders as a placeholder, and unknown components are
   placeholders too. No imports: components are built-in.
+- **Folder standard**: artifacts are folders — reference sibling files by
+  relative path (`![shot](asset.png)`, `[notes](other.md)` renders as a
+  viewer sub-route, `<Webframe src="wireframe.html" />` embeds HTML mocks).
+  Attach bytes with `artifact_asset`, or symlink a folder into
+  `docs/artifacts/<slug>/`.
 - **Relevance filter (default: prose)** — a visual must do work text cannot:
   diagram only for real structure (3+ interacting steps/actors, architecture,
   states), chart only with REAL data (never invent numbers to justify one).

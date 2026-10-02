@@ -53,6 +53,29 @@ the visual, the visual should not exist.
 | Same + a visual that passed the filter above | `mdx` |
 | Truly interactive / self-contained page | `html` (last resort) |
 
+## Sibling files & sub-routes — the folder standard
+
+An artifact is a **folder**. Files next to `index.mdx` are first-class:
+
+```
+docs/artifacts/un-artifact/
+├── index.mdx        # entry (versioned via artifact_create)
+├── asset.png        # ![shot](asset.png)
+├── logo.svg         # inline by relative path
+├── other.html       # sub-route; embed with <Webframe src="other.html" />
+└── other.md         # [notes](other.md) → renders as a viewer sub-route
+```
+
+- Reference siblings by **relative path only** — the viewer URL makes them
+  resolve. Never absolute/external URLs for local files.
+- Agents attach bytes with `artifact_asset` (name may be a subpath like
+  `shots/01.png`; bytes live in the store, served at
+  `/artifacts/<slug>/<name>`). You may also drop or symlink a folder into
+  `docs/artifacts/<slug>/` — the daemon serves whatever it finds.
+- `Webframe` (web viewer component): props `src` (required, relative),
+  `title?`, `height?` (160-720, default 360). Browser-chrome embed of a
+  sibling HTML — ideal for wireframes and mock pages inside a document.
+
 ## Frontmatter (both md and mdx)
 
 ```yaml

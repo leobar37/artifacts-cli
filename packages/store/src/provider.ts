@@ -28,6 +28,15 @@ export interface PutResult {
   filePath: string;
 }
 
+export interface AssetPutResult {
+  repoId: string;
+  slug: string;
+  /** Artifact-relative asset path, e.g. "shots/01.png". */
+  name: string;
+  /** Docs-visible symlink path (docs/artifacts/<slug>/<name>). */
+  filePath: string;
+}
+
 /**
  * Storage strategy boundary. LocalStore implements it today;
  * a cloud (R2/worker) backend implements the same interface tomorrow
@@ -39,4 +48,6 @@ export interface StorageProvider {
   getVersion(cwd: string, slug: string, version: string): ArtifactContent | null;
   list(cwd: string): ArtifactEntry[];
   readManifest(repoId: string): RepoManifest;
+  /** Sibling asset for an existing artifact (images, svg, html, md…). */
+  putAsset(cwd: string, slug: string, name: string, content: Buffer): AssetPutResult;
 }

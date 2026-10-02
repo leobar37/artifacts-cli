@@ -99,6 +99,25 @@ describe("LocalStore", () => {
     expect(found?.content).toBe("<p>old</p>");
   });
 
+  it("putAsset writes store bytes and symlinks docs (subpaths allowed)", () => {
+    store.put(work, { slug: "doc", title: "Doc", content: "# Hi", format: "mdx" });
+    const result = store.putAsset(work, "doc", "shots/01.png", Buffer.from("pngbytes"));
+    expect(result.name).toBe("shots/01.png");
+    expect(readFileSync(join(work, "docs", "artifacts", "doc", "shots", "01.png"), "utf-8")).toBe("pngbytes");
+    expect(lstatSync(join(work, "docs", "artifacts", "doc", "shots", "01.png")).isSymbolicLink()).toBe(true);
+    const storeCopy = join(home, "store", store.dirFor(work).repoId, "doc", "assets", "shots", "01.png");
+    expect(readFileSync(storeCopy, "utf-8")).toBe("pngbytes");
+  });
+
+  it("putAsset overwrites by name and rejects bad names/unknown slugs", () => {
+    store.put(work, { slug: "doc", title: "Doc", content: "# Hi", format: "mdx" });
+    store.putAsset(work, "doc", "logo.svg", Buffer.from("a"));
+    store.putAsset(work, "doc", "logo.svg", Buffer.from("b"));
+    expect(readFileSync(join(work, "docs", "artifacts", "doc", "logo.svg"), "utf-8")).toBe("b");
+    expect(() => store.putAsset(work, "doc", "../escape.png", Buffer.from("x"))).toThrow("Invalid asset name");
+    expect(() => store.putAsset(work, "nope", "a.png", Buffer.from("x"))).toThrow("NOT_FOUND");
+  });
+
   it("list reflects manifest", () => {
     store.put(work, { slug: "a", title: "A", content: "x" });
     store.put(work, { slug: "b", title: "B", content: "y" });

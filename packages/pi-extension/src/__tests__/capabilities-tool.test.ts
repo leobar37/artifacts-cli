@@ -46,6 +46,24 @@ afterEach(() => {
   rmSync(work, { recursive: true, force: true });
 });
 
+describe("artifact_asset tool", () => {
+  it("stores bytes and returns the relative reference", async () => {
+    const create = tools.get("artifact_create")!;
+    await create.execute("c1", { slug: "doc", title: "Doc", content: "# Hi", format: "mdx" }, undefined, undefined, { cwd: work });
+    const tool = tools.get("artifact_asset")!;
+    const b64 = Buffer.from("pngbytes").toString("base64");
+    const result = await tool.execute("a1", { slug: "doc", name: "shots/01.png", contentBase64: b64 }, undefined, undefined, { cwd: work });
+    expect(result.content[0].text).toContain("OK doc/shots/01.png");
+    expect(result.content[0].text).toContain("reference it as: shots/01.png");
+  });
+
+  it("reports NOT_FOUND for assets on unknown slugs", async () => {
+    const tool = tools.get("artifact_asset")!;
+    const result = await tool.execute("a2", { slug: "ghost", name: "a.png", contentBase64: "eA==" }, undefined, undefined, { cwd: work });
+    expect(result.content[0].text).toContain("NOT_FOUND");
+  });
+});
+
 describe("artifact_capabilities tool", () => {
   it("returns formats, components and mermaid for agents", async () => {
     const tool = tools.get("artifact_capabilities");
@@ -53,7 +71,7 @@ describe("artifact_capabilities tool", () => {
     const result = await tool!.execute("t1", {}, undefined, undefined, { cwd: work });
     const details = CapabilitiesDetails.parse(result.details);
     expect(details.formats.map((f) => f.format)).toEqual(["html", "md", "mdx"]);
-    expect(details.components.map((c) => c.name)).toEqual(["Chart", "Stats", "Stat", "Callout"]);
+    expect(details.components.map((c) => c.name).sort()).toEqual(["Callout", "Chart", "Stat", "Stats", "Webframe"]);
     expect(details.mermaid.supported).toBe(true);
     expect(result.content[0].text).toContain("components:");
   });

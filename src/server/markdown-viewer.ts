@@ -281,6 +281,22 @@ mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding
   border-radius: 8px; color: var(--fg);
 }
 .mv-mermaid svg { max-width: 100%; height: auto; white-space: normal; }
+.mv-frame {
+  margin: 1.4em 0; border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; background: var(--code-bg);
+}
+.mv-frame-bar {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px;
+  border-bottom: 1px solid var(--border); background: var(--bar-bg);
+}
+.mv-frame-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); flex: none; }
+.mv-frame-url {
+  margin-left: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .72em; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mv-frame-body { display: block; width: 100%; border: 0; background: #fff; }
 `;
 }
 
@@ -292,6 +308,26 @@ export function getMdxGuideSource(): string {
     guideCache = readFileSync(new URL("./mdx-guide.mdx", import.meta.url), "utf-8");
   }
   return guideCache;
+}
+
+/**
+ * Tiny wireframe-style page so the guide can show a live <Webframe> demo
+ * (the guide is not a docs/artifacts folder, so it ships its own asset).
+ */
+export function mdxGuideFrameDemo(): string {
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><style>
+  body { margin: 0; font: 14px/1.5 -apple-system, sans-serif; color: #1f2328; }
+  .app { display: grid; grid-template-columns: 200px 1fr; min-height: 320px; }
+  .side { background: #f6f8fa; border-right: 1px solid #d1d9e0; padding: 16px; }
+  .main { padding: 24px; }
+  .box { border: 1px dashed #9198a1; border-radius: 8px; padding: 12px; margin-bottom: 12px; color: #59636e; }
+</style></head>
+<body><div class="app">
+  <div class="side"><strong>wireframe.html</strong><div class="box">nav</div><div class="box">filters</div></div>
+  <div class="main"><div class="box">header — hero copy</div><div class="box">grid of cards</div><div class="box">footer</div></div>
+</div></body></html>`;
 }
 
 let mermaidCache: Buffer | null = null;

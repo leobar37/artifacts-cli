@@ -64,6 +64,22 @@ describe('serveArtifactFile markdown', () => {
     expect(await res.text()).toBe('<h1>old</h1>');
   });
 
+  it("serves sibling md through the viewer and assets with proper mime", async () => {
+    mkdirSync(join(base, "pack"), { recursive: true });
+    writeFileSync(join(base, "pack", "index.mdx"), "# Pack\n");
+    writeFileSync(join(base, "pack", "notes.md"), "# Sub-route notes\n");
+    writeFileSync(join(base, "pack", "logo.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+
+    const md = await app.request("/artifacts/pack/notes.md");
+    const mdBody = await md.text();
+    expect(md.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(mdBody).toContain("mv-content");
+    expect(mdBody).toContain("<h1>Sub-route notes</h1>");
+
+    const svg = await app.request("/artifacts/pack/logo.svg");
+    expect(svg.headers.get("content-type")).toBe("image/svg+xml");
+  });
+
   it('still blocks traversal', async () => {
     const res = await app.request('/artifacts/..%2f..%2fetc%2fpasswd');
     expect(res.status).toBe(403);

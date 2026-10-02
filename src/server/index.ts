@@ -27,7 +27,7 @@ import {
 } from "../utils/projects.js";
 import { getProjectArtifactsPath } from "../utils/project.js";
 import type { ProjectEnv } from "../types/artifact.js";
-import { getMdxGuideSource, renderMarkdownViewer, serveMermaidAsset, type ViewerTheme } from "./markdown-viewer.js";
+import { getMdxGuideSource, mdxGuideFrameDemo, renderMarkdownViewer, serveMermaidAsset, type ViewerTheme } from "./markdown-viewer.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("server");
@@ -334,6 +334,11 @@ export async function createArtifactServer(
     });
     // Client-side mermaid bundle for markdown/mdx diagrams (same origin).
     app.get("/assets/mermaid.min.js", () => serveMermaidAsset());
+
+    // Live asset for the guide's <Webframe> demo (same origin as the page).
+    app.get("/frame-demo.html", (c) =>
+      c.html(mdxGuideFrameDemo(), 200, { "Cache-Control": "no-store" }),
+    );
 
     if (serveDashboard) {
       const dashboardPath = path.join(__dirname, "../../dist/dashboard");

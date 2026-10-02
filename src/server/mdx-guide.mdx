@@ -163,6 +163,36 @@ Discover everything programmatically: `artifact capabilities --json`
 (formats, components with props, mermaid, features) or open this guide with
 `artifact guide`.
 
+## Sibling files & sub-routes — the folder standard
+
+An artifact is a **folder**, not a single file. Everything next to
+`index.mdx` is first-class and referenceable by relative path:
+
+```
+docs/artifacts/un-artifact/
+├── index.mdx        # entry (versioned via artifact_create)
+├── asset.png        # ![shot](asset.png)
+├── logo.svg         # <img src="logo.svg"> or ![](logo.svg)
+├── other.html       # browsable sub-route, or embed with <Webframe>
+└── other.md         # [notes](other.md) → renders as a viewer sub-route
+```
+
+| Sibling | Referenced as | What the reader gets |
+| --- | --- | --- |
+| image/svg | `![alt](asset.png)` | inline image |
+| `.md` / `.mdx` | `[notes](other.md)` | viewer-rendered sub-route |
+| `.html` | `<Webframe src="other.html" />` | browser-like embed below |
+| any file | link | served with proper MIME |
+
+Agents: attach bytes with the `artifact_asset` tool (name may be a subpath
+like `shots/01.png`); or drop/symlink a folder into
+`docs/artifacts/<slug>/` yourself — the daemon serves whatever it finds.
+
+`Webframe` embeds a sibling page in a browser chrome (only
+artifact-relative `src`, `height` 160-720):
+
+<Webframe src="frame-demo.html" title="wireframe.html — live demo" height={340} />
+
 ## Everything else is Markdown + GFM
 
 - Task lists: `- [x] done`, `- [ ] pending`

@@ -333,6 +333,26 @@ function renderStat(p: JsxProps): string | null {
 function escape(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
+/**
+ * Browser-like embed for a sibling file of the same artifact (wireframes,
+ * mock pages, generated HTML). Only artifact-relative paths: the iframe must
+ * never point off-origin.
+ */
+function renderWebframe(p: JsxProps): string | null {
+  const src = typeof p.src === "string" ? p.src.trim() : "";
+  const unsafe =
+    !src ||
+    src.includes("://") ||
+    src.startsWith("//") ||
+    src.startsWith("/") ||
+    src.split("/").some((s) => s === "..") ||
+    src.includes("\\") ||
+    src.includes("\0");
+  if (unsafe) return null;
+  const height = typeof p.height === "number" ? Math.min(720, Math.max(160, p.height)) : 360;
+  const title = typeof p.title === "string" && p.title ? escape(p.title) : src;
+  return `<div class="mv-frame"><div class="mv-frame-bar"><span class="mv-frame-dot"></span><span class="mv-frame-dot"></span><span class="mv-frame-dot"></span><span class="mv-frame-url">${escape(src)}</span></div><iframe class="mv-frame-body" src="${escape(src)}" title="${title}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" style="height:${height}px"></iframe></div>`;
+}
 
 /**
  * Render a built-in component. `childrenHtml` arrives already rendered from
@@ -349,6 +369,8 @@ export function renderMdxComponent(tag: string, props: JsxProps, childrenHtml: s
       return renderStat(props);
     case "Stats":
       return `<div class="mv-stats">${childrenHtml}</div>`;
+    case "Webframe":
+      return renderWebframe(props);
     default:
       return null;
   }

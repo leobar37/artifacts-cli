@@ -3,7 +3,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, unlinkSync
 import { homedir } from "node:os";
 import path from "node:path";
 import { emptyManifest, type ArtifactEntry, type ArtifactFormat, type RepoManifest } from "./manifest.js";
-import type { ArtifactContent, PutInput, PutResult, StorageProvider } from "./provider.js";
+import type { ArtifactContent, AssetPutResult, PutInput, PutResult, StorageProvider } from "./provider.js";
 import { getRepoId } from "./repo-id.js";
 
 function baseDir(): string {
@@ -119,6 +119,37 @@ export class LocalStore implements StorageProvider {
     return { repoId, slug: input.slug, version, filePath: latestPath };
   }
 
+  /**
+   * Sibling asset (image/svg/html/md…) for an existing artifact: bytes live in
+   * the store next to the entry file, docs gets a symlink — same pattern as
+   * index.<ext>. Assets are stable by name (overwrites allowed, not versioned).
+   * `name` is an artifact-relative subpath: "logo.svg", "shots/01.png".
+   */
+  putAsset(cwd: string, slug: string, name: string, content: Buffer): AssetPutResult {
+    const { repoId, dir } = this.dirFor(cwd);
+    const manifest = this.readManifest(repoId);
+    if (!manifest.artifacts[slug]) {
+      throw new Error(`NOT_FOUND ${slug}: create the artifact (artifact_create) before adding assets`);
+    }
+    const segments = name.split("/").filter((s) => s.length > 0);
+    if (segments.length === 0 || segments.some((s) => s === "." || s === ".." || s.includes("\\") || s.includes("\0"))) {
+      throw new Error(`Invalid asset name "${name}": use relative paths like "logo.svg" or "shots/01.png"`);
+    }
+    const assetPath = path.join(dir, slug, "assets", ...segments);
+    mkdirSync(path.dirname(assetPath), { recursive: true });
+    writeFileSync(assetPath, content);
+
+    // docs symlink so the dashboard serves it under /artifacts/<slug>/<name>
+    const docsFile = path.join(cwd, "docs", "artifacts", slug, ...segments);
+    try {
+      mkdirSync(path.dirname(docsFile), { recursive: true });
+      if (existsSync(docsFile) || lstatSync(docsFile, { throwIfNoEntry: false })) unlinkSync(docsFile);
+      symlinkSync(assetPath, docsFile);
+    } catch {
+      // Best-effort like linkLatest: the store copy remains canonical.
+    }
+    return { repoId, slug, name, filePath: docsFile };
+  }
 
   list(cwd: string): ArtifactEntry[] {
     const { repoId } = this.dirFor(cwd);

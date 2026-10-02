@@ -132,6 +132,11 @@ omp plugin link ./packages/pi-extension
   danger) render for real; props must be literals, so agents inline their
   data. Module statements and `{/* comments */}` are hidden; unknown
   components keep visible placeholders.
+- **Folder standard** — an artifact is a folder: sibling images referenced
+  by relative path, `.md`/`.mdx` siblings render as viewer sub-routes, and
+  `<Webframe src="wireframe.html" />` embeds HTML mocks in a browser chrome.
+  Agents attach bytes via the `artifact_asset` omp tool (store-backed);
+  symlinked folders are served too.
 - **Mermaid diagrams** — fenced blocks tagged `mermaid` (flowchart,
   sequence, ER, gantt, …) render client-side from a bundle served by your
   own daemon: works offline and over Tailscale; source stays visible

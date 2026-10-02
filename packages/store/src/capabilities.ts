@@ -90,6 +90,16 @@ export function getViewerCapabilities(): ViewerCapabilities {
         example: '<Stat value="72" label="Sessions" delta="+38%" />',
       },
       {
+        name: 'Webframe',
+        description: 'Browser-like embed of a sibling file of the same artifact (wireframes, mock HTML)',
+        props: [
+          { name: 'src', required: true, description: 'artifact-relative path, e.g. "wireframe.html" (never absolute/external)' },
+          { name: 'title', required: false, description: 'accessibility/frame title' },
+          { name: 'height', required: false, description: 'px, 160-720 (default 360)' },
+        ],
+        example: '<Webframe src="wireframe.html" height={420} />',
+      },
+      {
         name: 'Callout',
         description: 'Highlighted note; children are rendered as markdown',
         props: [
@@ -110,6 +120,8 @@ export function getViewerCapabilities(): ViewerCapabilities {
       'MDX: module-level import/export and {/* comments */} hidden',
       'MDX: props must be literals (viewer executes no code); unknown components render as visible placeholders',
       'versioned store: artifact_create/artifact_update create v001, v002...',
+      'folder standard: sibling files are first-class — reference them by relative path (asset.png, notes.md); .md/.mdx siblings render as viewer sub-routes, .html siblings are browsable or embeddable via <Webframe>',
+      'assets: attach with the artifact_asset tool (bytes in the store, served at /artifacts/<slug>/<name>); symlinked folders also work',
     ],
     usageGuidance: usageGuidance(),
     mermaid: {

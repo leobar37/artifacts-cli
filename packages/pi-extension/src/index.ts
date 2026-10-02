@@ -281,6 +281,30 @@ export default function (pi: Pi) {
     },
   });
 
+  pi.registerTool({
+    name: "artifact_asset",
+    label: "Artifact Asset",
+    description:
+      "Attach a sibling file (png/svg/html/md/…) to an EXISTING artifact so its mdx can reference it by relative path: ![logo](logo.svg), <Webframe src=\"wireframe.html\" /> (browser-like embed), [notes](notes.md) (renders as a viewer sub-route). name is an artifact-relative subpath ('logo.svg', 'shots/01.png'); content goes base64-encoded. Bytes live in the versioned store; the dashboard serves them under /artifacts/<slug>/<name>. Create the artifact first with artifact_create.",
+    parameters: z.object({
+      slug: z.string().describe("existing kebab-case artifact slug"),
+      name: z.string().describe("artifact-relative path, e.g. logo.svg or shots/01.png"),
+      contentBase64: z.string().describe("file bytes, base64-encoded"),
+    }),
+    async execute(_id, params, _signal, _onUpdate, ctx) {
+      const { slug, name, contentBase64 } = params as { slug: string; name: string; contentBase64: string };
+      const clean = slugify(slug);
+      try {
+        const result = store.putAsset(ctx.cwd, clean, name, Buffer.from(contentBase64, "base64"));
+        const text = `OK ${clean}/${result.name}\nfile: ${result.filePath}\nrepo: ${result.repoId}\nreference it as: ${result.name}`;
+        return { content: [{ type: "text", text }], details: result };
+      } catch (err) {
+        const text = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text }], details: { ok: false } };
+      }
+    },
+  });
+
   pi.registerCommand("artifact", {
     description: "Show artifact dashboard links: /artifact show [slug] · /artifact list",
     handler: async (args, ctx) => {

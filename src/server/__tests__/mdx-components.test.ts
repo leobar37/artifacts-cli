@@ -121,6 +121,22 @@ describe('renderMdxComponent', () => {
     expect(renderMdxComponent('Stat', { label: 'no value' }, '')).toBeNull();
   });
 
+  it('Webframe renders a sandboxed iframe with browser chrome', () => {
+    const html = renderMdxComponent('Webframe', { src: 'wireframe.html', height: 420 }, '');
+    expect(html).toContain('mv-frame-bar');
+    expect(html).toContain('src="wireframe.html"');
+    expect(html).toContain('sandbox="allow-scripts allow-same-origin allow-popups"');
+    expect(html).toContain('height:420px');
+  });
+
+  it('Webframe rejects non-relative sources', () => {
+    expect(renderMdxComponent('Webframe', { src: 'https://evil.com' }, '')).toBeNull();
+    expect(renderMdxComponent('Webframe', { src: '//evil.com' }, '')).toBeNull();
+    expect(renderMdxComponent('Webframe', { src: '/abs.html' }, '')).toBeNull();
+    expect(renderMdxComponent('Webframe', { src: '../up.html' }, '')).toBeNull();
+    expect(renderMdxComponent('Webframe', {}, '')).toBeNull();
+  });
+
   it('Stats wraps children; unknown tags return null', () => {
     expect(renderMdxComponent('Stats', {}, '<div class="mv-stat"></div>')).toContain('mv-stats');
     expect(renderMdxComponent('Nope', {}, '')).toBeNull();
