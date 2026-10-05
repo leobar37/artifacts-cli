@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Artifact, RemoteSummary } from '../../types/artifact.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
 import { eventsUrl, previewUrl, projectBase, artifactEntryFile } from '../lib/project.js';
+import { PAINT_POLL_MS, previewDocumentPainted } from '../lib/preview.js';
 import { Maximize2, Minimize2, Box, AlertTriangle, RefreshCw, ServerOff } from 'lucide-react';
 
 export interface RemoteViewerContext {
@@ -49,8 +50,8 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
   const [loadError, setLoadError] = useState<LoadError>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paintRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoRetriedRef = useRef(false);
-
   const isOffline = !!remote && remote.remote.status === 'offline';
   const [refreshKey, setRefreshKey] = useState(0);
   // Markdown previews are rendered by the server-side viewer page: pass the
@@ -68,7 +69,9 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
 
 
 
-  const stretchHtmlArtifact = () => {
+  // Stable identity: reveal/startLoading depend on it; a fresh inline
+  // function restarts the loading effect on every parent re-render (6ac821d).
+  const stretchHtmlArtifact = useCallback(() => {
     try {
       const iframe = iframeRef.current;
       if (!iframe) return;
@@ -91,12 +94,16 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
     } catch {
       // Cross-origin or unloaded iframe: stretching is best-effort only.
     }
-  };
+  }, []);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
+    }
+    if (paintRef.current) {
+      clearInterval(paintRef.current);
+      paintRef.current = null;
     }
   }, []);
 
@@ -133,13 +140,24 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
     setIsLoading(false);
   }, []);
 
+  const reveal = useCallback(() => {
+    clearTimer();
+    stretchHtmlArtifact();
+    setIsLoading(false);
+  }, [clearTimer, stretchHtmlArtifact]);
+
   const startLoading = useCallback(() => {
     clearTimer();
     autoRetriedRef.current = false;
     setLoadError(null);
     setIsLoading(true);
     timerRef.current = setTimeout(() => void handleTimeout(), LOAD_TIMEOUT_MS);
-  }, [clearTimer, handleTimeout]);
+    // Reveal on paint: HTML artifacts with slow CDN subresources never fire
+    // `load`, but the same-origin document is parsed and visible much earlier.
+    paintRef.current = setInterval(() => {
+      if (previewDocumentPainted(iframeRef.current)) reveal();
+    }, PAINT_POLL_MS);
+  }, [clearTimer, handleTimeout, reveal]);
 
   const retry = useCallback(() => {
     startLoading();
@@ -292,11 +310,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
           sandbox="allow-scripts allow-same-origin allow-popups"
           className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading && !loadError ? 'opacity-0' : 'opacity-100'}`}
           title={artifact.title}
-          onLoad={() => {
-            clearTimer();
-            stretchHtmlArtifact();
-            setIsLoading(false);
-          }}
+          onLoad={reveal}
           onError={() => {
             clearTimer();
             setIsLoading(false);
