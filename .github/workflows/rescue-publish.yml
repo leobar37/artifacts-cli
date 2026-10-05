@@ -18,8 +18,11 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run --cwd packages/store build
       - run: bun run build
-      - name: Drop the staged 0.6.0 that wedged the package document
-        run: npm unpublish @tarileo/artifacts-cli@0.6.0 --force || echo "nothing to unpublish"
+      - name: Drop every staged version that wedged the package document
+        run: |
+          for v in 0.6.0 0.6.1; do
+            npm unpublish @tarileo/artifacts-cli@$v --force || echo "nothing to unpublish at $v"
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: bun pm pack
@@ -27,6 +30,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: The registry must actually serve the new version
-        run: npm view @tarileo/artifacts-cli@0.6.1 version
+        run: npm view @tarileo/artifacts-cli@0.6.2 version
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
