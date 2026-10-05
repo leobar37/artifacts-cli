@@ -1,0 +1,32 @@
+name: Rescue publish (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd packages/store build
+      - run: bun run build
+      - name: Drop the staged 0.6.0 that wedged the package document
+        run: npm unpublish @tarileo/artifacts-cli@0.6.0 --force || echo "nothing to unpublish"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: bun pm pack
+      - run: npm publish tarileo-artifacts-cli-*.tgz --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: The registry must actually serve the new version
+        run: npm view @tarileo/artifacts-cli@0.6.1 version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
