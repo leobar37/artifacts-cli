@@ -48,7 +48,7 @@
     },
     "packages/pi-extension": {
       "name": "@tarileo/artifact-omp",
-      "version": "0.3.0",
+      "version": "0.4.1",
       "dependencies": {
         "@tarileo/artifact-store": "workspace:*",
         "zod": "^4.3.6",
@@ -61,7 +61,7 @@
     },
     "packages/store": {
       "name": "@tarileo/artifact-store",
-      "version": "0.2.0",
+      "version": "0.3.1",
       "devDependencies": {
         "@types/node": "^20.11.0",
         "typescript": "^5.3.0",
