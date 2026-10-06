@@ -262,7 +262,7 @@ export default function (pi: Pi) {
     name: "artifact_capabilities",
     label: "Artifact Capabilities",
     description:
-      "What the artifact dashboard can render BEFORE you generate one: supported formats (html|md|mdx), the built-in MDX components with props and examples (Chart, Stats, Stat, Callout), mermaid fence usage and viewer features. Call this before writing an mdx artifact; unknown components render as placeholders, and props must be literals (inline your data).",
+      "What the artifact dashboard can render BEFORE you generate one: supported formats (html|md|mdx), the built-in MDX components with props and examples (Chart, Stats, Stat, Callout, Section, Svg), mermaid fence usage and viewer features. Call this before writing an mdx artifact; unknown components render as placeholders, and props must be literals (inline your data).",
     parameters: z.object({}),
     async execute(_id, _params, _signal, _onUpdate, _ctx) {
       const caps = getViewerCapabilities();

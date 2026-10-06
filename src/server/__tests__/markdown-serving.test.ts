@@ -32,7 +32,7 @@ describe('serveArtifactFile markdown', () => {
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = await res.text();
-    expect(body).toContain('<h1>Notes</h1>');
+    expect(body).toContain('<h1 id="notes">Notes');
     expect(body).toContain('mv-format">md');
   });
 
@@ -54,7 +54,7 @@ describe('serveArtifactFile markdown', () => {
     const res = await app.request('/artifacts/doc/index.mdx');
     const body = await res.text();
     expect(body).toContain('mv-format">mdx');
-    expect(body).toContain('<h1>Doc</h1>');
+    expect(body).toContain('<h1 id="doc">Doc');
     expect(body).not.toContain('export const x');
   });
 
@@ -74,7 +74,7 @@ describe('serveArtifactFile markdown', () => {
     const mdBody = await md.text();
     expect(md.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(mdBody).toContain("mv-content");
-    expect(mdBody).toContain("<h1>Sub-route notes</h1>");
+    expect(mdBody).toContain('<h1 id="sub-route-notes">Sub-route notes');
 
     const svg = await app.request("/artifacts/pack/logo.svg");
     expect(svg.headers.get("content-type")).toBe("image/svg+xml");

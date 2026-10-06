@@ -56,7 +56,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
       {
         format: 'mdx',
         entryFile: 'index.mdx',
-        description: 'Markdown + built-in components (Chart, Stats, Callout)',
+        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg)',
       },
     ],
     components: [
@@ -109,11 +109,35 @@ export function getViewerCapabilities(): ViewerCapabilities {
         ],
         example: '<Callout type="warning" title="Careful">**Read this.**</Callout>',
       },
+      {
+        name: 'Section',
+        description: 'Named card section; its title joins the Secciones sidebar index',
+        props: [
+          { name: 'title', required: true, description: 'section heading (becomes the #anchor, accents stripped)' },
+          { name: 'id', required: false, description: 'custom anchor (default: slug of the title)' },
+          { name: 'subtitle', required: false, description: 'muted line under the heading' },
+          { name: 'children', required: false, description: 'markdown body' },
+        ],
+        example: '<Section title="Qué es">Prose, lists, even <Chart /> inside.</Section>',
+      },
+      {
+        name: 'Svg',
+        description: 'Declarative inline SVG: boxes, circles, arrows, lines, texts from literal data',
+        props: [
+          { name: 'shapes', required: true, description: 'array of {type: box|circle|arrow|line|text, ...coords, label?, color?}' },
+          { name: 'width', required: false, description: 'canvas px, 240-860 (default 640)' },
+          { name: 'height', required: false, description: 'canvas px, 120-520 (default 220)' },
+          { name: 'title', required: false, description: 'caption above the graphic' },
+        ],
+        example: '<Svg shapes={[{ type: "box", x: 10, y: 30, w: 150, h: 70, label: "Entrega" }]} />',
+      },
     ],
     features: [
       'GFM: tables, task lists, strikethrough, autolinks',
       'fenced code with syntax highlighting',
       'mermaid diagrams via ```mermaid fences',
+      'graphics expand: every Chart, Svg and mermaid diagram has an ⤢ button opening a full-viewport overlay (ESC/backdrop closes)',
+      'sections index: 3+ headings (h1-h3) get anchor ids and a Secciones sidebar with scroll-spy (sticky on desktop, stacked on mobile); <Section> titles join it automatically',
       'frontmatter title/type feed the sidebar label and artifact type',
       'dark/light theme follows the dashboard (?theme=dark|light)',
       '?raw=1 serves the plain source',
@@ -126,7 +150,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
     usageGuidance: usageGuidance(),
     mermaid: {
       supported: true,
-      usage: 'fenced code block with language `mermaid` (flowchart, sequence, class, state, er, gantt, pie, ...)',
+      usage: 'fenced code block with language `mermaid` (flowchart, sequence, class, state, er, gantt, pie, ...); pie labels must be quoted: `"md" : 31`',
       note: 'rendered client-side from the daemon-served bundle; raw source stays visible when JS is unavailable',
     },
     guidePath: '/mdx-guide',

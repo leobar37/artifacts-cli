@@ -308,7 +308,7 @@ function renderChart(p: JsxProps): string | null {
   }
 
   const title = typeof p.title === "string" && p.title ? `<p class="mv-chart-title">${escape(p.title)}</p>` : "";
-  return `<div class="mv-chart">${title}${renderToStaticMarkup(chart)}</div>`;
+  return `<figure class="mv-graph mv-chart">${EXPAND_BUTTON}${title}${renderToStaticMarkup(chart)}</figure>`;
 }
 
 const CALLOUT_KINDS: Record<string, true> = { info: true, warning: true, success: true, danger: true };
@@ -371,7 +371,142 @@ export function renderMdxComponent(tag: string, props: JsxProps, childrenHtml: s
       return `<div class="mv-stats">${childrenHtml}</div>`;
     case "Webframe":
       return renderWebframe(props);
+    case "Section":
+      return renderSection(props, childrenHtml);
+    case "Svg":
+      return renderSvg(props);
     default:
       return null;
+  }
+}
+
+/**
+ * Named section: a titled card whose heading doubles as the document
+ * index entry (the viewer builds its "Secciones" sidebar from h1-h3, so
+ * no extra wiring is needed — add `##` headings or <Section> and the
+ * sidebar follows what authors keep adding).
+ */
+function renderSection(p: JsxProps, childrenHtml: string): string | null {
+  const title = typeof p.title === "string" ? p.title.trim() : "";
+  if (!title) return null;
+  const rawId = typeof p.id === "string" && p.id.trim() ? p.id.trim() : slugifyHeading(title);
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(rawId)) return null;
+  const subtitle =
+    typeof p.subtitle === "string" && p.subtitle.trim()
+      ? `<p class="mv-section-sub">${escape(p.subtitle.trim())}</p>`
+      : "";
+  return `<section class="mv-section"><h2 id="${rawId}">${escape(title)}</h2>${subtitle}<div class="mv-section-body">${childrenHtml}</div></section>`;
+}
+
+export function slugifyHeading(text: string): string {
+  const slug = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return slug || "seccion";
+}
+
+const SVG_COLORS: Record<string, string> = {
+  blue: "#58a6ff",
+  green: "#3fb950",
+  yellow: "#d29922",
+  red: "#f85149",
+  purple: "#bc8cff",
+  teal: "#39c5cf",
+  gray: "#9198a1",
+};
+
+let svgCounter = 0;
+
+/**
+ * Declarative vector graphics: authors describe boxes, circles, arrows,
+ * lines and texts as literal data — no hand-written `<svg>` markup, no
+ * code execution. Renders to an inline static SVG (theme-safe palette,
+ * text follows the viewer theme via CSS).
+ */
+/**
+ * Every graphic (Chart, Svg, mermaid) carries an expand control: the
+ * viewer script turns its figure into a full-viewport overlay (ESC or
+ * backdrop click closes). Mermaid uses the same constant in
+ * markdown-viewer.ts — keep the class in sync.
+ */
+export const EXPAND_BUTTON =
+  `<button class="mv-expand" type="button" aria-label="Ampliar gráfico" title="Ampliar"><span aria-hidden="true">⤢</span></button>`;
+
+function renderSvg(p: JsxProps): string | null {
+  const shapes = p.shapes;
+  if (!Array.isArray(shapes) || shapes.length === 0 || shapes.length > 40) return null;
+  const width = num(p.width, 640, 240, 860);
+  const height = num(p.height, 220, 120, 520);
+  const title = typeof p.title === "string" && p.title.trim() ? `<p class="mv-chart-title">${escape(p.title.trim())}</p>` : "";
+  const marker = `mv-arrow-${++svgCounter}`;
+  const parts: string[] = [];
+  for (const s of shapes) {
+    const frag = renderShape(s);
+    if (frag) parts.push(frag);
+  }
+  if (parts.length === 0) return null;
+  const defs = `<defs><marker id="${marker}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="${SVG_COLORS.gray}"></path></marker></defs>`;
+  return `<figure class="mv-graph mv-svg">${EXPAND_BUTTON}${title}<svg viewBox="0 0 ${width} ${height}" role="img" xmlns="http://www.w3.org/2000/svg">${defs}${parts.join("")}</svg></figure>`;
+
+  function renderShape(s: unknown): string | null {
+    if (typeof s !== "object" || s === null) return null;
+    const shape = s as Record<string, unknown>;
+    const type = shape.type;
+    const color = typeof shape.color === "string" && SVG_COLORS[shape.color] ? SVG_COLORS[shape.color] : SVG_COLORS.blue;
+    if (type === "box") {
+      const x = finite(shape.x); const y = finite(shape.y);
+      const w = finite(shape.w); const hgt = finite(shape.h);
+      if (x === null || y === null || w === null || hgt === null || w < 20 || hgt < 20) return null;
+      const label = text(shape.label);
+      const sub = text(shape.sub);
+      const cy = y + hgt / 2 + (sub ? -8 : 0);
+      return `<g><rect x="${x}" y="${y}" width="${w}" height="${hgt}" rx="10" fill="${color}" fill-opacity="0.14" stroke="${color}" stroke-width="1.5"></rect>` +
+        (label ? `<text x="${x + w / 2}" y="${cy}" text-anchor="middle" dominant-baseline="central" class="mv-svg-label">${label}</text>` : "") +
+        (sub ? `<text x="${x + w / 2}" y="${cy + 18}" text-anchor="middle" dominant-baseline="central" class="mv-svg-sub">${sub}</text>` : "") +
+        `</g>`;
+    }
+    if (type === "circle") {
+      const cx = finite(shape.cx); const cy = finite(shape.cy); const r = finite(shape.r);
+      if (cx === null || cy === null || r === null || r < 8) return null;
+      const label = text(shape.label);
+      return `<g><circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" fill-opacity="0.14" stroke="${color}" stroke-width="1.5"></circle>` +
+        (label ? `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" class="mv-svg-label">${label}</text>` : "") +
+        `</g>`;
+    }
+    if (type === "arrow" || type === "line") {
+      const x1 = finite(shape.x1); const y1 = finite(shape.y1);
+      const x2 = finite(shape.x2); const y2 = finite(shape.y2);
+      if (x1 === null || y1 === null || x2 === null || y2 === null) return null;
+      const dashed = shape.dashed === true ? ` stroke-dasharray="6 4"` : "";
+      const head = type === "arrow" ? ` marker-end="url(#${marker})"` : "";
+      const label = text(shape.label);
+      const mx = (x1 + x2) / 2; const my = (y1 + y2) / 2 - 8;
+      return `<g><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${SVG_COLORS.gray}" stroke-width="1.8"${dashed}${head}></line>` +
+        (label ? `<text x="${mx}" y="${my}" text-anchor="middle" class="mv-svg-tag">${label}</text>` : "") +
+        `</g>`;
+    }
+    if (type === "text") {
+      const x = finite(shape.x); const y = finite(shape.y);
+      const content = text(shape.text);
+      if (x === null || y === null || !content) return null;
+      const size = num(shape.size, 13, 9, 28);
+      const anchor = shape.anchor === "start" || shape.anchor === "end" ? shape.anchor : "middle";
+      return `<text x="${x}" y="${y}" text-anchor="${anchor}" class="mv-svg-label" style="font-size:${size}px">${content}</text>`;
+    }
+    return null;
+  }
+
+  function finite(v: unknown): number | null {
+    return typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
+  }
+  function num(v: unknown, fallback: number, min: number, max: number): number {
+    return typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  }
+  function text(v: unknown): string {
+    return typeof v === "string" && v.trim() ? escape(v.trim().slice(0, 80)) : "";
   }
 }

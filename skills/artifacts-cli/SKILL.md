@@ -131,10 +131,12 @@ skeleton: [references/mdx-components.md](references/mdx-components.md).
 
 Decision rules:
 
-- Documents/reports/notes → `format: "md"`; add charts/KPIs/callouts → `"mdx"`.
+- Documents/reports/notes → `format: "md"`; add charts/KPIs/callouts/sections/graphics → `"mdx"`.
+- Long docs: 3+ `##` headings auto-build the Secciones sidebar — just keep adding headings.
 - Components: `<Chart type=bar|line|area|pie data={[…]} />`, `<Stats><Stat
   value="…" label="…" delta="+…" /></Stats>`, `<Callout type=info|warning|
-  success|danger title="…">markdown children</Callout>`.
+  success|danger title="…">markdown children</Callout>`, `<Section
+  title="…">markdown children</Section>`, `<Svg shapes={[{ type: "box", … }]} />`.
 - Diagrams: mermaid fences (```mermaid) — never ASCII art.
 - **Props must be literals**: inline the data (`data={[{ name: "Q1", v: 12 }]}`);
   `data={identifier}` renders as a placeholder, and unknown components are
@@ -158,7 +160,7 @@ version): `artifact_capabilities` (omp tool) or `artifact capabilities --json`.
 Before generating an artifact, check what the viewer supports:
 `artifact capabilities --json` — formats, components with props and
 examples, mermaid usage, features, and the live guide URL. Prefer
-markdown/mdx for documents; use `Chart`/`Stats`/`Callout` and mermaid
+markdown/mdx for documents; use `Chart`/`Stats`/`Callout`/`Section`/`Svg` and mermaid
 fences instead of inventing custom components — unknown JSX renders as a
 placeholder, never a real widget. The same information, rendered with live
 examples, lives at `/mdx-guide` (`artifact guide`).

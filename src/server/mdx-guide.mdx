@@ -16,7 +16,7 @@ data instead of referencing variables.
 
 <Callout type="info" title="Rule of thumb">
 Documents, reports, notes → plain `.md`. Documents that need **charts,
-KPIs or callouts** → `.mdx` with the components below.
+KPIs, sections or declarative graphics** → `.mdx` with the components below.
 </Callout>
 
 <Callout type="warning" title="Relevance filter — apply before any visual">
@@ -89,7 +89,8 @@ Pie for shares (the first numeric key is the value):
 />
 
 Charts are **static server-side renders** (no hover tooltips) and follow the
-dashboard theme automatically.
+dashboard theme automatically. Hover any chart for its **⤢ expand button**
+to see it full-viewport.
 
 ## KPIs — `Stats` + `Stat`
 
@@ -122,6 +123,109 @@ Every save through `artifact_create` / `artifact_update` creates a new
 Default type is `info`; unknown types fall back to it too.
 </Callout>
 
+## Sections for long documents — headings + `Section`
+
+Every `##` / `###` heading gets an anchor id automatically (accents
+stripped: `Qué es` → `#que-es`, hover any heading for its `#` link).
+When a document has **3 or more headings**, the viewer adds a
+**Secciones sidebar**: sticky index on desktop, stacked card on mobile,
+with scroll-spy highlighting where you are. Everything you keep adding
+with `##` shows up there — no configuration, just keep writing markdown
+and readers can jump around the document.
+
+For a highlighted block with its own card, use `Section` (its title is a
+regular `h2`, so it joins the sidebar too; children are **markdown**):
+
+<Section title="Qué es (y para quién)" subtitle="El vertical base de Avileo">
+  Prose, lists, even nested components — everything works in here.
+
+  - **Modo técnico:** `businessMode: "distributor"`.
+  - **Firma:** "Vende. Cobra. Controla."
+</Section>
+
+```mdx
+<Section title="Cierre de jornada" subtitle="Qué tiene que pasar en la operación">
+  Prose, lists, even <Chart /> or <Svg /> inside.
+</Section>
+```
+
+| Prop | Required | Notes |
+| --- | --- | --- |
+| `title` | yes | card heading; becomes the `#anchor` (accents stripped) |
+| `id` | no | custom anchor, e.g. `id="cierre"` → `#cierre` |
+| `subtitle` | no | muted line under the heading |
+| children | no | **markdown body** |
+
+Tips: short docs (fewer than 3 headings) keep the current single-column
+look — the sidebar only appears when the document is long enough to need
+it. Prefer `##` for sections, `###` for subsections; one `#` title per
+document.
+
+## Declarative SVG graphics — `Svg`
+
+When a mermaid diagram is too much (or not the right shape), describe a
+small vector graphic as **literal data** — no hand-written `<svg>`
+markup, no code. You declare `shapes`, the viewer draws them:
+
+<Svg
+  title="Vende · Cobra · Controla"
+  shapes={[
+    { type: "box", x: 10, y: 50, w: 150, h: 70, label: "Vende", sub: "en ruta", color: "blue" },
+    { type: "arrow", x1: 160, y1: 85, x2: 210, y2: 85 },
+    { type: "box", x: 210, y: 50, w: 150, h: 70, label: "Cobra", sub: "por cliente", color: "green" },
+    { type: "arrow", x1: 360, y1: 85, x2: 410, y2: 85 },
+    { type: "box", x: 410, y: 50, w: 150, h: 70, label: "Controla", sub: "pulso del día", color: "purple" },
+  ]}
+/>
+
+```mdx
+<Svg
+  title="Vende · Cobra · Controla"
+  shapes={[
+    { type: "box", x: 10, y: 50, w: 150, h: 70, label: "Vende", sub: "en ruta", color: "blue" },
+    { type: "arrow", x1: 160, y1: 85, x2: 210, y2: 85 },
+    { type: "box", x: 210, y: 50, w: 150, h: 70, label: "Cobra", sub: "por cliente", color: "green" },
+    { type: "arrow", x1: 360, y1: 85, x2: 410, y2: 85 },
+    { type: "box", x: 410, y: 50, w: 150, h: 70, label: "Controla", sub: "pulso del día", color: "purple" },
+  ]}
+/>
+```
+
+Shape reference (all props are literals — coordinates are canvas pixels):
+
+| `type` | Coords | Extras |
+| --- | --- | --- |
+| `box` | `x`, `y`, `w`, `h` | `label?`, `sub?` (second line), `color?` |
+| `circle` | `cx`, `cy`, `r` | `label?`, `color?` |
+| `arrow` | `x1`, `y1`, `x2`, `y2` | `label?` (midpoint tag), `dashed?` |
+| `line` | `x1`, `y1`, `x2`, `y2` | `label?`, `dashed?` (no arrowhead) |
+| `text` | `x`, `y`, `text` | `size?` (9–28), `anchor?` (`middle` default, `start`, `end`) |
+
+Canvas: `width?` (240–860, default 640), `height?` (120–520, default
+220), `title?` caption. Colors: `blue` (default), `green`, `yellow`,
+`red`, `purple`, `teal`, `gray`. Labels follow the dashboard theme
+automatically; at most 40 shapes per graphic.
+
+A second pattern — milestones joined by a dashed connector:
+
+<Svg
+  title="Jornada del vendedor"
+  height={160}
+  shapes={[
+    { type: "circle", cx: 60, cy: 70, r: 30, label: "1", color: "blue" },
+    { type: "line", x1: 90, y1: 70, x2: 170, y2: 70, dashed: true },
+    { type: "circle", cx: 200, cy: 70, r: 30, label: "2", color: "green" },
+    { type: "line", x1: 230, y1: 70, x2: 310, y2: 70, dashed: true },
+    { type: "circle", cx: 340, cy: 70, r: 30, label: "3", color: "purple" },
+    { type: "text", x: 60, y: 125, text: "entrega" },
+    { type: "text", x: 200, y: 125, text: "cobra" },
+    { type: "text", x: 340, y: 125, text: "cierra" },
+  ]}
+/>
+
+Same relevance filter as charts: a graphic must show real structure from
+the document — never invent content to justify one.
+
 ## Tables — plain GFM, no component needed
 
 | Component | Props | Notes |
@@ -130,6 +234,8 @@ Default type is `info`; unknown types fall back to it too.
 | `Stats` | children | responsive grid wrapper |
 | `Stat` | `value`, `label?`, `delta?` | one KPI cell |
 | `Callout` | `type?`, `title?`, children | info · warning · success · danger |
+| `Section` | `title`, `id?`, `subtitle?`, children | titled card, joins the Secciones index |
+| `Svg` | `shapes`, `width?`, `height?`, `title?` | declarative boxes · circles · arrows · texts |
 
 ## Diagrams — mermaid fences
 
@@ -155,9 +261,23 @@ sequenceDiagram
   D-->>A: viewer page (GFM + charts + diagrams)
 ```
 
+Pie for shares — labels **must be quoted**, values are numbers:
+
+```mermaid
+pie title Artifacts by format
+  "html" : 24
+  "md" : 31
+  "mdx" : 17
+```
+
 Diagrams render client-side from a bundle served by your own daemon — they
 work offline and over Tailscale. If scripts are unavailable the raw source
 stays visible instead of a blank box.
+
+Every graphic on this page — charts, `Svg` figures and mermaid diagrams —
+carries an **⤢ expand button** (top-right on hover): it opens a
+full-viewport overlay where the vector scales up; ESC or a backdrop click
+closes it.
 
 Discover everything programmatically: `artifact capabilities --json`
 (formats, components with props, mermaid, features) or open this guide with

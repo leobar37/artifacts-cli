@@ -128,10 +128,15 @@ omp plugin link ./packages/pi-extension
   dark/light theme that follows the dashboard). Append `?raw=1` to a preview
   URL for the plain source.
 - **MDX components** — `Chart` (bar/line/area/pie, server-rendered with
-  recharts), `Stats`+`Stat` (KPI grids) and `Callout` (info/warning/success/
-  danger) render for real; props must be literals, so agents inline their
-  data. Module statements and `{/* comments */}` are hidden; unknown
-  components keep visible placeholders.
+  recharts), `Stats`+`Stat` (KPI grids), `Callout` (info/warning/success/
+  danger), `Section` (titled card that joins the index) and `Svg`
+  (declarative boxes/circles/arrows/texts from literal data) render for
+  real; props must be literals, so agents inline their data. Module
+  statements and `{/* comments */}` are hidden; unknown components keep
+  visible placeholders.
+- **Sections index** — 3+ headings get anchor ids and a Secciones sidebar
+  (sticky + scroll-spy, stacked on mobile); short docs keep the
+  single-column look.
 - **Folder standard** — an artifact is a folder: sibling images referenced
   by relative path, `.md`/`.mdx` siblings render as viewer sub-routes, and
   `<Webframe src="wireframe.html" />` embeds HTML mocks in a browser chrome.

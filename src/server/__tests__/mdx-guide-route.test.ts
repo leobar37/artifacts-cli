@@ -36,8 +36,12 @@ describe('GET /mdx-guide', () => {
     expect(body).toContain('mv-format">mdx');
     expect(body).toContain('recharts-bar');
     expect(body).toContain('recharts-pie');
-    expect(body).toContain('mv-callout--info');
     expect(body).toContain('mv-stats');
+    // Sections tutorial: card component + automatic index sidebar.
+    expect(body).toContain('mv-section');
+    expect(body).toContain('aria-label="Secciones"');
+    // Declarative SVG tutorial renders inline svg.
+    expect(body).toContain('<svg viewBox=');
     // Mermaid section: containers + client boot script.
     expect(body).toContain('mv-mermaid');
     expect(body).toContain('/assets/mermaid.min.js');

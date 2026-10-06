@@ -22,7 +22,7 @@ with the installed version.
 4. **Unknown components never crash** — they render as a visible placeholder
    `⟨Tag⟩` so readers see something belongs there. Don't invent components:
    use the built-ins below or plain markdown.
-5. **Children of `Callout`/`Stats` are markdown** — bold, lists, links, even
+5. **Children of `Callout`/`Stats`/`Section` are markdown** — bold, lists, links, even
    nested components work inside them.
 6. Lowercase HTML tags (`<details>`, `<b>`) pass through as normal markdown
    HTML; capitalized tags are components.
@@ -45,13 +45,22 @@ Hard limits: **one diagram per document** (unless the document is itself
 architecture/flow documentation), and if the surrounding text has to explain
 the visual, the visual should not exist.
 
-## Choosing the format
-
 | Need | Format |
 | --- | --- |
 | Notes, reports, specs, any prose | `md` |
 | Same + a visual that passed the filter above | `mdx` |
+| Long doc needing quick navigation | `md` or `mdx` — 3+ `##` headings auto-build the Secciones sidebar |
 | Truly interactive / self-contained page | `html` (last resort) |
+
+## Sections index (md and mdx, automatic)
+
+Every `##` / `###` heading gets an anchor id (accents stripped:
+`Qué es` → `#que-es`). With **3+ headings** the viewer shows a
+**Secciones sidebar** (sticky + scroll-spy on desktop, stacked on
+mobile) — everything authors keep adding via `##` appears there, so
+readers jump around long documents. Short docs keep the single-column
+look. One `#` title per document; `##` for sections, `###` for
+subsections.
 
 ## Sibling files & sub-routes — the folder standard
 
@@ -146,6 +155,49 @@ type: study                    # generic (default) | study | wireframe (sidebar 
 | `title` | no | bold heading |
 | children | no | **markdown body** (bold, lists, links, code) |
 
+### `Section` — named card section (joins the Secciones index)
+
+```mdx
+<Section title="Cierre de jornada" subtitle="Qué tiene que pasar en la operación">
+  Prose, lists, even `<Chart />` or `<Svg />` inside.
+</Section>
+```
+
+| Prop | Required | Notes |
+| --- | --- | --- |
+| `title` | yes | card heading; becomes the `#anchor` (accents stripped) |
+| `id` | no | custom anchor, e.g. `id="cierre"` → `#cierre` |
+| `subtitle` | no | muted line under the heading |
+| children | no | **markdown body** |
+
+### `Svg` — declarative vector graphic (no hand-written markup)
+
+Describe boxes, circles, arrows, lines and texts as literal data:
+
+```mdx
+<Svg
+  title="Vende · Cobra · Controla"
+  shapes={[
+    { type: "box", x: 10, y: 50, w: 150, h: 70, label: "Vende", sub: "en ruta", color: "blue" },
+    { type: "arrow", x1: 160, y1: 85, x2: 210, y2: 85 },
+    { type: "box", x: 210, y: 50, w: 150, h: 70, label: "Cobra", sub: "por cliente", color: "green" },
+  ]}
+/>
+```
+
+| `type` | Coords | Extras |
+| --- | --- | --- |
+| `box` | `x`, `y`, `w`, `h` | `label?`, `sub?`, `color?` |
+| `circle` | `cx`, `cy`, `r` | `label?`, `color?` |
+| `arrow` | `x1`, `y1`, `x2`, `y2` | `label?`, `dashed?` |
+| `line` | `x1`, `y1`, `x2`, `y2` | `label?`, `dashed?` (no arrowhead) |
+| `text` | `x`, `y`, `text` | `size?` (9–28), `anchor?` (`middle`/`start`/`end`) |
+
+Canvas `width?` (240–860, default 640), `height?` (120–520, default
+220), `title?`. Colors: `blue` (default), `green`, `yellow`, `red`,
+`purple`, `teal`, `gray`. Max 40 shapes. Same relevance filter as
+charts: real structure from the document, never invented content.
+
 ## Diagrams — mermaid fences (md and mdx)
 
 Any fenced block tagged `mermaid` renders as a diagram. No component, no props:
@@ -163,6 +215,19 @@ mindmap, gitGraph… (whatever the installed mermaid supports). Rendered
 client-side; if scripts are unavailable the raw source stays visible.
 If a diagram passed the relevance filter, render it as a mermaid fence —
 never as ASCII art.
+
+Pie labels **must be quoted** (`"md" : 31` — unquoted labels fail to parse):
+
+````mdx
+```mermaid
+pie title Artifacts by format
+  "html" : 24
+  "md" : 31
+```
+````
+
+Every graphic — `Chart`, `Svg`, mermaid — gets an **⤢ expand button**
+(top-right on hover) opening a full-viewport overlay; ESC/backdrop closes.
 
 ## Plain markdown you can rely on (GFM)
 

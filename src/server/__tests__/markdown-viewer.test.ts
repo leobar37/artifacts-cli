@@ -58,6 +58,40 @@ describe('renderMarkdownBody mermaid', () => {
   });
 });
 
+describe('renderMarkdownBody code snippets', () => {
+  it('highlights shell scripts with keywords', () => {
+    const html = renderMarkdownBody('```bash\nif [ -f x ]; then\n  echo ok\nfi\n```\n', 'md');
+    expect(html).toContain('language-bash');
+    expect(html).toContain('hljs-');
+  });
+
+  it('leaves language-less fences as plain escaped text', () => {
+    const html = renderMarkdownBody('```\n<a>&</a>\n```\n', 'md');
+    expect(html).toContain('<pre><code>');
+    expect(html).toContain('&lt;a&gt;&amp;&lt;/a&gt;');
+    expect(html).not.toContain('hljs-');
+  });
+});
+
+describe('renderMarkdownViewer expandable graphics', () => {
+  it('wraps mermaid diagrams in a figure with an expand button', () => {
+    const html = renderMarkdownBody('```mermaid\npie title T\n  "A" : 1\n```\n', 'md');
+    expect(html).toContain('<figure class="mv-graph mv-diagram">');
+    expect(html).toContain('class="mv-expand"');
+    expect(html).toContain('<div class="mv-mermaid">pie title T');
+  });
+
+  it('includes the overlay script only when the page has graphics', () => {
+    const withGraph = renderMarkdownViewer('```mermaid\nflowchart LR\n  A-->B\n```\n', { slug: 'd', format: 'md' });
+    expect(withGraph).toContain('class="mv-expand"');
+    expect(withGraph).toContain('mv-lock');
+    expect(withGraph).toContain('Escape');
+    const plain = renderMarkdownViewer('# plain\n\ntext\n', { slug: 'p', format: 'md' });
+    expect(plain).not.toContain('<button class="mv-expand"');
+    expect(plain).not.toContain('document.body.classList');
+  });
+});
+
 describe('renderMarkdownViewer mermaid boot', () => {
   it('loads the mermaid bundle only when the page has diagrams', () => {
     const withDiagram = renderMarkdownViewer('```mermaid\nflowchart LR\n  A-->B\n```\n', { slug: 'd', format: 'md' });
@@ -115,7 +149,7 @@ describe('renderMarkdownViewer', () => {
     expect(page).toContain('mv-slug">notes');
     expect(page).toContain('mv-format">md');
     expect(page).toContain('href="?raw=1"');
-    expect(page).toContain('<h1>Hi</h1>');
+    expect(page).toContain('<h1 id="hi">Hi');
   });
 
   it('light theme flips data-theme and inlines the light palette', () => {
@@ -134,5 +168,31 @@ describe('renderMarkdownViewer', () => {
 describe('escapeHtml', () => {
   it('escapes the dangerous five', () => {
     expect(escapeHtml('<a href="x">&</a>')).toBe('&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;');
+  });
+});
+
+describe('renderMarkdownViewer sections index', () => {
+  const long = '# T\n\n## Uno\n\nx\n\n## Dos\n\nx\n\n### Detalle\n\nx\n';
+
+  it('adds anchor ids to headings', () => {
+    const page = renderMarkdownViewer(long, { slug: 'doc', format: 'md' });
+    expect(page).toContain('<h2 id="uno">Uno');
+    expect(page).toContain('<h2 id="dos">Dos');
+    expect(page).toContain('<h3 id="detalle">Detalle');
+  });
+
+  it('renders the Secciones sidebar for long docs, not for short ones', () => {
+    const withToc = renderMarkdownViewer(long, { slug: 'doc', format: 'md' });
+    expect(withToc).toContain('aria-label="Secciones"');
+    expect(withToc).toContain('<a href="#uno">Uno</a>');
+    expect(withToc).toContain('<a href="#detalle">Detalle</a>');
+    const short = renderMarkdownViewer('# Hi\n', { slug: 'doc', format: 'md' });
+    expect(short).not.toContain('aria-label="Secciones"');
+  });
+
+  it('dedupes repeated titles and strips accents', () => {
+    const page = renderMarkdownViewer('## Café\n\nx\n\n## Café\n\nx\n\n## Otro\n\nx\n', { slug: 'd', format: 'md' });
+    expect(page).toContain('id="cafe"');
+    expect(page).toContain('id="cafe-2"');
   });
 });

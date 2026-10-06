@@ -71,7 +71,7 @@ describe("artifact_capabilities tool", () => {
     const result = await tool!.execute("t1", {}, undefined, undefined, { cwd: work });
     const details = CapabilitiesDetails.parse(result.details);
     expect(details.formats.map((f) => f.format)).toEqual(["html", "md", "mdx"]);
-    expect(details.components.map((c) => c.name).sort()).toEqual(["Callout", "Chart", "Stat", "Stats", "Webframe"]);
+    expect(details.components.map((c) => c.name).sort()).toEqual(["Callout", "Chart", "Section", "Stat", "Stats", "Svg", "Webframe"]);
     expect(details.mermaid.supported).toBe(true);
     expect(result.content[0].text).toContain("components:");
   });

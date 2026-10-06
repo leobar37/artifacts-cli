@@ -141,4 +141,55 @@ describe('renderMdxComponent', () => {
     expect(renderMdxComponent('Stats', {}, '<div class="mv-stat"></div>')).toContain('mv-stats');
     expect(renderMdxComponent('Nope', {}, '')).toBeNull();
   });
+
+  it('Section renders a titled card whose heading is indexable', () => {
+    const html = renderMdxComponent('Section', { title: 'Qué es' }, '<p>body</p>');
+    expect(html).toContain('<section class="mv-section">');
+    expect(html).toContain('<h2 id="que-es">Qué es</h2>');
+    expect(html).toContain('<p>body</p>');
+  });
+
+  it('Section honors custom id/subtitle and rejects bad input', () => {
+    const html = renderMdxComponent('Section', { title: 'Flujo', id: 'flujo-x', subtitle: 'De punta a punta' }, '');
+    expect(html).toContain('id="flujo-x"');
+    expect(html).toContain('De punta a punta');
+    expect(renderMdxComponent('Section', {}, '')).toBeNull();
+    expect(renderMdxComponent('Section', { title: 'x', id: '9-bad' }, '')).toBeNull();
+  });
+
+  it('Svg renders boxes, arrows and texts as inline svg', () => {
+    const html = renderMdxComponent('Svg', {
+      title: 'Flujo',
+      shapes: [
+        { type: 'box', x: 10, y: 30, w: 150, h: 70, label: 'Entrega' },
+        { type: 'arrow', x1: 160, y1: 65, x2: 230, y2: 65, label: 'vende' },
+        { type: 'box', x: 230, y: 30, w: 150, h: 70, label: 'Cobra', color: 'green' },
+        { type: 'text', x: 195, y: 140, text: 'cierre diario' },
+      ],
+    }, '');
+    expect(html).toContain('<svg viewBox="0 0 640 220"');
+    expect(html).toContain('<rect');
+    expect(html).toContain('Entrega');
+    expect(html).toContain('<line');
+    expect(html).toContain('cierre diario');
+  });
+
+  it('Svg rejects empty shapes and escapes labels', () => {
+    expect(renderMdxComponent('Svg', { shapes: [] }, '')).toBeNull();
+    expect(renderMdxComponent('Svg', {}, '')).toBeNull();
+    const html = renderMdxComponent('Svg', {
+      shapes: [{ type: 'box', x: 10, y: 10, w: 120, h: 60, label: '<script>' }],
+    }, '');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('Chart and Svg carry an expand button for the overlay', () => {
+    const chart = renderMdxComponent('Chart', { data: [{ name: 'Q1', v: 1 }] }, '');
+    expect(chart).toContain('<figure class="mv-graph mv-chart">');
+    expect(chart).toContain('class="mv-expand"');
+    const svg = renderMdxComponent('Svg', { shapes: [{ type: 'box', x: 10, y: 10, w: 120, h: 60 }] }, '');
+    expect(svg).toContain('<figure class="mv-graph mv-svg">');
+    expect(svg).toContain('class="mv-expand"');
+  });
 });

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { Marked, type Tokens } from "marked";
 import hljs from "highlight.js/lib/common";
-import { findJsxBlock, parseJsxProps, renderMdxComponent, type JsxBlock } from "./mdx-components.js";
+import { findJsxBlock, parseJsxProps, renderMdxComponent, slugifyHeading, EXPAND_BUTTON, type JsxBlock } from "./mdx-components.js";
 
 export type ViewerTheme = "dark" | "light";
 
@@ -31,9 +31,18 @@ export interface MarkdownViewerOptions {
 export function renderMarkdownViewer(source: string, options: MarkdownViewerOptions): string {
   const theme = options.theme === "light" ? "light" : "dark";
   const body = renderMarkdownBody(source, options.format);
-  // Mermaid renders client-side (the preview iframe allows scripts); the
-  // daemon serves the bundle so diagrams also work offline / over Tailscale.
-  const mermaidScript = body.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
+  // Long documents get quick navigation: headings (including <Section>
+  // titles, which render as <h2>) become an index sidebar. Short docs keep
+  // the current single-column look untouched.
+  const { html: anchored, toc } = addHeadingAnchors(body);
+  const withToc = toc.length >= 3;
+  const mermaidScript = anchored.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
+  const graphScript = anchored.includes('class="mv-graph') ? graphBootScript() : "";
+  const content = withToc
+    ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><p class="mv-toc-title">Secciones</p><ul>${toc
+        .map((e) => `<li class="mv-toc-l${e.level}"><a href="#${e.id}">${escapeHtml(e.text)}</a></li>`)
+        .join("")}</ul></nav><div class="mv-content">${anchored}</div></div>`
+    : `<main class="mv-content">${anchored}</main>`;
   return `<!doctype html>
 <html lang="en" data-theme="${theme}">
 <head>
@@ -49,12 +58,74 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   <a class="mv-raw" href="?raw=1" title="${escapeHtml(options.relativePath ?? "raw source")}">raw</a>
   <a class="mv-raw" href="/mdx-guide" target="_blank" title="components you can use inside .mdx artifacts">mdx guide</a>
 </header>
-<main class="mv-content">
-${body}
-</main>
+${content}
 ${mermaidScript}
+${graphScript}
 </body>
 </html>`;
+}
+
+export interface TocEntry {
+  level: 1 | 2 | 3;
+  id: string;
+  text: string;
+}
+
+/** URL-friendly anchor from a heading — shared with <Section> ids. */
+export { slugifyHeading };
+
+/**
+ * Give every h1-h3 an `id` (authors can jump with `#anchor`) and collect
+ * the index entries. Duplicate titles get `-2`, `-3`, ... suffixes.
+ */
+export function addHeadingAnchors(html: string): { html: string; toc: TocEntry[] } {
+  const seen = new Map<string, number>();
+  const toc: TocEntry[] = [];
+  const anchored = html.replaceAll(
+    /<h([123])([^>]*)>([\s\S]*?)<\/h\1>/g,
+    (match, level, attrs, inner) => {
+      const text = inner.replaceAll(/<[^>]+>/g, "").replaceAll(/&amp;/g, "&").replaceAll(/&lt;/g, "<").replaceAll(/&gt;/g, ">").replaceAll(/&quot;/g, '"').trim();
+      const existing = /id="([^"]+)"/.exec(attrs)?.[1];
+      let id = existing ?? slugifyHeading(text);
+      const count = seen.get(id) ?? 0;
+      seen.set(id, count + 1);
+      if (count > 0) id = `${id}-${count + 1}`;
+      if (!text) return match;
+      toc.push({ level: Number(level) as 1 | 2 | 3, id, text: text.slice(0, 120) });
+      const withId = existing ? match : `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
+      return withId.replaceAll(
+        `</h${level}>`,
+        `<a class="mv-anchor" href="#${id}" aria-label="Enlace a esta sección">#</a></h${level}>`,
+      );
+    },
+  );
+  return { html: anchored, toc };
+}
+
+function tocBootScript(): string {
+  return `<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll(".mv-toc a"));
+  if (!links.length || !("IntersectionObserver" in window)) return;
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+  var current = null;
+  var select = function (id) {
+    if (current === id) return;
+    current = id;
+    links.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + id); });
+  };
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) select(e.target.id);
+    });
+  }, { rootMargin: "-20% 0px -65% 0px" });
+  Object.keys(byId).forEach(function (id) {
+    var h = document.getElementById(id);
+    if (h) obs.observe(h);
+  });
+})();
+</script>`;
 }
 
 function mermaidBootScript(): string {
@@ -75,6 +146,35 @@ function mermaidBootScript(): string {
 })();
 </script>`;
 }
+/**
+ * Expand overlay for every `.mv-graph` figure (Chart, Svg, mermaid):
+ * the button opens a full-viewport layer where the vector graphic scales
+ * up; ESC or a click on the backdrop closes it.
+ */
+function graphBootScript(): string {
+  return `<script>
+(function () {
+  function close() {
+    var open = document.querySelector(".mv-graph.open");
+    if (open) open.classList.remove("open");
+    document.body.classList.remove("mv-lock");
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest(".mv-expand") : null;
+    if (btn) {
+      var fig = btn.closest(".mv-graph");
+      if (fig) { fig.classList.add("open"); document.body.classList.add("mv-lock"); }
+      return;
+    }
+    if (e.target && e.target.classList && e.target.classList.contains("mv-graph")
+      && e.target.classList.contains("open")) close();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") close();
+  });
+})();
+</script>`;
+}
 
 /** Markdown body shared by the viewer page (also used by tests). */
 export function renderMarkdownBody(source: string, format: "md" | "mdx"): string {
@@ -90,9 +190,10 @@ marked.use({
     code({ text, lang }: Tokens.Code): string {
       const language = (lang ?? "").trim().split(/\s+/)[0];
       if (language === "mermaid") {
-        // Diagram: mermaid swaps this block for an SVG client-side; until
+        // Diagram: mermaid swaps the inner div for an SVG client-side; until
         // then (or when JS/bundle is unavailable) the raw source stays readable.
-        return `<div class="mv-mermaid">${escapeHtml(text)}</div>`;
+        // The button survives the swap (sibling, not child) and opens the overlay.
+        return `<figure class="mv-graph mv-diagram">${EXPAND_BUTTON}<div class="mv-mermaid">${escapeHtml(text)}</div></figure>`;
       }
       const highlighted = language && hljs.getLanguage(language)
         ? hljs.highlight(text, { language, ignoreIllegals: true }).value
@@ -297,6 +398,74 @@ mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mv-frame-body { display: block; width: 100%; border: 0; background: #fff; }
+.mv-content h1[id], .mv-content h2[id], .mv-content h3[id] { scroll-margin-top: 56px; }
+.mv-anchor {
+  margin-left: .4em; font-size: .7em; font-weight: 400; text-decoration: none;
+  color: var(--muted); opacity: 0;
+}
+h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
+.mv-anchor:hover { color: var(--link); }
+.mv-layout { display: flex; gap: 32px; max-width: 1120px; margin: 0 auto; padding: 0 24px; align-items: flex-start; }
+.mv-layout .mv-content { flex: 1; min-width: 0; max-width: 780px; margin: 0; padding-left: 0; padding-right: 0; }
+.mv-toc {
+  position: sticky; top: 56px; flex: none; width: 232px; max-height: calc(100vh - 96px);
+  overflow-y: auto; margin: 40px 0 96px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bar-bg);
+  font-size: .82em;
+}
+.mv-toc-title { margin: 0 0 6px; font-weight: 700; font-size: .78em; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.mv-toc ul { list-style: none; margin: 0; padding: 0; }
+.mv-toc li { margin: 0; }
+.mv-toc a {
+  display: block; padding: 3px 8px; border-radius: 6px; color: var(--muted);
+  text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mv-toc a:hover { color: var(--fg); background: var(--code-bg); }
+.mv-toc a.active { color: var(--link); background: var(--badge-bg); font-weight: 600; }
+.mv-toc-l2 a { padding-left: 8px; }
+.mv-toc-l3 a { padding-left: 20px; font-size: .92em; }
+.mv-toc-l1 a { font-weight: 600; }
+@media (max-width: 900px) {
+  .mv-layout { flex-direction: column; gap: 0; }
+  .mv-toc { position: static; width: auto; max-height: 190px; margin: 16px 0 0; }
+  .mv-layout .mv-content { padding-top: 16px; }
+}
+.mv-section {
+  margin: 1.6em 0; padding: 16px 20px; border: 1px solid var(--border);
+  border-radius: 12px; background: color-mix(in srgb, var(--code-bg) 45%, transparent);
+}
+.mv-section > h2:first-child { margin-top: 0; border-bottom: 0; padding-bottom: 0; }
+.mv-section-sub { margin: -.3em 0 .8em; color: var(--muted); font-size: .92em; }
+.mv-section-body > :last-child { margin-bottom: 0; }
+.mv-svg { margin: 1.4em 0; overflow-x: auto; }
+.mv-svg svg { display: block; width: 100%; height: auto; }
+.mv-svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+.mv-svg-label { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.mv-svg-sub { fill: var(--muted); font-size: 11px; }
+.mv-svg-tag { fill: var(--muted); font-size: 11px; }
+.mv-graph { position: relative; }
+.mv-expand {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--bar-bg);
+  color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; opacity: 0;
+}
+.mv-graph:hover .mv-expand, .mv-expand:focus-visible { opacity: 1; }
+.mv-expand:hover { color: var(--link); border-color: var(--link); }
+.mv-graph.open {
+  position: fixed; inset: 20px; z-index: 60; overflow: auto; margin: 0;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 40px 32px;
+}
+.mv-graph.open .mv-expand { opacity: 1; top: 12px; right: 12px; }
+.mv-graph.open .mv-expand span { display: none; }
+.mv-graph.open .mv-expand::after { content: "✕"; }
+.mv-graph.open svg { width: 100% !important; max-width: 1100px !important; height: auto !important; margin: 0 auto; }
+body.mv-lock { overflow: hidden; }
+@media (max-width: 900px) {
+  .mv-expand { opacity: 1; }
+  .mv-graph.open { inset: 8px; padding: 32px 12px; }
+}
 `;
 }
 
