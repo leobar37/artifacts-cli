@@ -26,7 +26,10 @@ export interface MarkdownViewerOptions {
  * - Fenced code gets highlight.js; unknown languages stay plain.
  * - YAML frontmatter is stripped (its title feeds the scanner, not the body).
  * - MDX module-level `import`/`export` statements are hidden: they are
- *   compile-time metadata, not content. JSX passes through as inert HTML.
+ *   compile-time metadata, not content. Built-in components (Chart, Stats,
+ *   Callout, Section, Svg, Video, Audio, Webframe) render for real when
+ *   props are literals; unknown components become visible placeholders;
+ *   lowercase HTML passes through untouched.
  */
 export function renderMarkdownViewer(source: string, options: MarkdownViewerOptions): string {
   const theme = options.theme === "light" ? "light" : "dark";
@@ -36,12 +39,13 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   // the current single-column look untouched.
   const { html: anchored, toc } = addHeadingAnchors(body);
   const withToc = toc.length >= 3;
+  const tocScript = withToc ? tocBootScript() : "";
   const mermaidScript = anchored.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
   const graphScript = anchored.includes('class="mv-graph') ? graphBootScript() : "";
   const content = withToc
-    ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><p class="mv-toc-title">Secciones</p><ul>${toc
+    ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><p class="mv-toc-title">Secciones</p><input class="mv-toc-search" type="search" placeholder="Filtrar secciones…" aria-label="Filtrar secciones" autocomplete="off"><ul>${toc
         .map((e) => `<li class="mv-toc-l${e.level}"><a href="#${e.id}">${escapeHtml(e.text)}</a></li>`)
-        .join("")}</ul></nav><div class="mv-content">${anchored}</div></div>`
+        .join("")}<li class="mv-toc-empty" hidden>Sin coincidencias</li></ul></nav><div class="mv-content">${anchored}</div></div>`
     : `<main class="mv-content">${anchored}</main>`;
   return `<!doctype html>
 <html lang="en" data-theme="${theme}">
@@ -59,6 +63,7 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   <a class="mv-raw" href="/mdx-guide" target="_blank" title="components you can use inside .mdx artifacts">mdx guide</a>
 </header>
 ${content}
+${tocScript}
 ${mermaidScript}
 ${graphScript}
 </body>
@@ -92,7 +97,10 @@ export function addHeadingAnchors(html: string): { html: string; toc: TocEntry[]
       if (count > 0) id = `${id}-${count + 1}`;
       if (!text) return match;
       toc.push({ level: Number(level) as 1 | 2 | 3, id, text: text.slice(0, 120) });
-      const withId = existing ? match : `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
+      const withId =
+        existing && count === 0
+          ? match
+          : (existing ? match.replace(/id="[^"]*"/, `id="${id}"`) : `<h${level}${attrs} id="${id}">${inner}</h${level}>`);
       return withId.replaceAll(
         `</h${level}>`,
         `<a class="mv-anchor" href="#${id}" aria-label="Enlace a esta sección">#</a></h${level}>`,
@@ -105,8 +113,11 @@ export function addHeadingAnchors(html: string): { html: string; toc: TocEntry[]
 function tocBootScript(): string {
   return `<script>
 (function () {
-  var links = Array.prototype.slice.call(document.querySelectorAll(".mv-toc a"));
-  if (!links.length || !("IntersectionObserver" in window)) return;
+  var nav = document.querySelector(".mv-toc");
+  if (!nav) return;
+  var links = Array.prototype.slice.call(nav.querySelectorAll("li a"));
+  if (!links.length) return;
+  var norm = function (s) { return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); };
   var byId = {};
   links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
   var current = null;
@@ -115,9 +126,29 @@ function tocBootScript(): string {
     current = id;
     links.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + id); });
   };
+  var box = nav.querySelector(".mv-toc-search");
+  var empty = nav.querySelector(".mv-toc-empty");
+  if (box) {
+    box.addEventListener("input", function () {
+      var q = norm(box.value.trim());
+      var visible = 0;
+      links.forEach(function (a) {
+        var hit = !q || norm(a.textContent).indexOf(q) !== -1;
+        a.parentElement.hidden = !hit;
+        if (hit) {
+          visible++;
+        } else {
+          a.classList.remove("active");
+          if (current === a.getAttribute("href").slice(1)) current = null;
+        }
+      });
+      if (empty) empty.hidden = visible !== 0;
+    });
+  }
+  if (!("IntersectionObserver" in window)) return;
   var obs = new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
-      if (e.isIntersecting) select(e.target.id);
+      if (e.isIntersecting && byId[e.target.id] && !byId[e.target.id].parentElement.hidden) select(e.target.id);
     });
   }, { rootMargin: "-20% 0px -65% 0px" });
   Object.keys(byId).forEach(function (id) {
@@ -342,6 +373,12 @@ th { background: var(--code-bg); font-weight: 650; }
 tr:nth-child(2n) td { background: color-mix(in srgb, var(--code-bg) 55%, transparent); }
 hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
 img { max-width: 100%; }
+video { max-width: 100%; }
+.mv-media { margin: 1.4em 0; }
+.mv-video { display: block; width: 100%; max-height: 480px; background: #000; border: 1px solid var(--border); border-radius: 10px; }
+.mv-audio { display: block; width: 100%; }
+.mv-media--audio { padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg); }
+.mv-media-cap { display: block; margin-top: .4em; font-size: .85em; color: var(--muted); }
 mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding: 0 3px; }
 .mv-comp {
   margin: 1.2em 0; padding: 10px 14px; border: 1px dashed var(--border);
@@ -408,23 +445,36 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-layout { display: flex; gap: 32px; max-width: 1120px; margin: 0 auto; padding: 0 24px; align-items: flex-start; }
 .mv-layout .mv-content { flex: 1; min-width: 0; max-width: 780px; margin: 0; padding-left: 0; padding-right: 0; }
 .mv-toc {
-  position: sticky; top: 56px; flex: none; width: 232px; max-height: calc(100vh - 96px);
-  overflow-y: auto; margin: 40px 0 96px; padding: 12px 14px;
-  border: 1px solid var(--border); border-radius: 10px; background: var(--bar-bg);
-  font-size: .82em;
+  position: sticky; top: 56px; flex: none; width: 248px; max-height: calc(100vh - 96px);
+  display: flex; flex-direction: column;
+  margin: 40px 0 96px; padding: 14px 12px 10px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bar-bg);
+  font-size: .84em;
 }
-.mv-toc-title { margin: 0 0 6px; font-weight: 700; font-size: .78em; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.mv-toc ul { list-style: none; margin: 0; padding: 0; }
+.mv-toc-title { margin: 0 4px 8px; font-weight: 700; font-size: .74em; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.mv-toc-search {
+  margin: 0 0 8px; padding: 6px 10px; width: 100%;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--fg); font-size: .86em; outline: none;
+}
+.mv-toc-search::placeholder { color: var(--muted); }
+.mv-toc-search:focus { border-color: var(--link); }
+.mv-toc-search::-webkit-search-cancel-button { cursor: pointer; }
+.mv-toc ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; }
+.mv-toc ul::-webkit-scrollbar { width: 8px; }
+.mv-toc ul::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.mv-toc ul::-webkit-scrollbar-track { background: transparent; }
 .mv-toc li { margin: 0; }
 .mv-toc a {
-  display: block; padding: 3px 8px; border-radius: 6px; color: var(--muted);
+  display: block; padding: 4px 10px; border-radius: 7px; color: var(--muted);
   text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mv-toc a:hover { color: var(--fg); background: var(--code-bg); }
 .mv-toc a.active { color: var(--link); background: var(--badge-bg); font-weight: 600; }
-.mv-toc-l2 a { padding-left: 8px; }
-.mv-toc-l3 a { padding-left: 20px; font-size: .92em; }
-.mv-toc-l1 a { font-weight: 600; }
+.mv-toc-l1 a { font-weight: 600; color: var(--fg); }
+.mv-toc-l2 a { padding-left: 10px; }
+.mv-toc-l3 a { padding-left: 22px; font-size: .92em; }
+.mv-toc-empty { padding: 8px 10px; color: var(--muted); font-size: .86em; }
 @media (max-width: 900px) {
   .mv-layout { flex-direction: column; gap: 0; }
   .mv-toc { position: static; width: auto; max-height: 190px; margin: 16px 0 0; }

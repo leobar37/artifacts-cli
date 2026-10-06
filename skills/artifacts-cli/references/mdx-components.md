@@ -57,8 +57,9 @@ the visual, the visual should not exist.
 Every `##` / `###` heading gets an anchor id (accents stripped:
 `Qué es` → `#que-es`). With **3+ headings** the viewer shows a
 **Secciones sidebar** (sticky + scroll-spy on desktop, stacked on
-mobile) — everything authors keep adding via `##` appears there, so
-readers jump around long documents. Short docs keep the single-column
+mobile) with a **search box filtering entries** — everything authors keep
+adding via `##` appears there, so readers jump around long documents.
+Short docs keep the single-column
 look. One `#` title per document; `##` for sections, `###` for
 subsections.
 
@@ -71,6 +72,8 @@ docs/artifacts/un-artifact/
 ├── index.mdx        # entry (versioned via artifact_create)
 ├── asset.png        # ![shot](asset.png)
 ├── logo.svg         # inline by relative path
+├── clip.mp4         # <Video src="clip.mp4" />
+├── nota.mp3         # <Audio src="nota.mp3" />
 ├── other.html       # sub-route; embed with <Webframe src="other.html" />
 └── other.md         # [notes](other.md) → renders as a viewer sub-route
 ```
@@ -197,6 +200,25 @@ Canvas `width?` (240–860, default 640), `height?` (120–520, default
 220), `title?`. Colors: `blue` (default), `green`, `yellow`, `red`,
 `purple`, `teal`, `gray`. Max 40 shapes. Same relevance filter as
 charts: real structure from the document, never invented content.
+
+### `Video` / `Audio` — native playback (sibling file or https URL)
+
+```mdx
+<Video src="clip.mp4" title="Demo de la ruta" poster="thumb.png" />
+<Audio src="nota.mp3" title="Resumen en audio" />
+```
+
+| Prop | Required | Notes |
+| --- | --- | --- |
+| `src` | yes | sibling path (`clip.mp4`) or `https://` URL; `javascript:`/`data:`/`blob:`, `..` and absolute paths render as a placeholder |
+| `title` | no | caption under (`Video`) / next to (`Audio`) the player |
+| `poster` | no | `Video` only — cover image, same src rules as `src` |
+| `controls` | no | default `true` |
+| `autoplay`, `loop`, `muted` | no | default `false` (`autoplay` plays muted inline) |
+
+Video: mp4, webm, ogv, mov, mkv. Audio: mp3, wav, ogg, m4a, aac, flac, opus.
+Images stay plain markdown (`![alt](asset.png)` or `![alt](https://…)`); links too
+(`[text](other.md)`, `[text](https://…)`). `autoplay` always plays muted (browser policy).
 
 ## Diagrams — mermaid fences (md and mdx)
 

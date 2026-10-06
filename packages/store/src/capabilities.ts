@@ -56,7 +56,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
       {
         format: 'mdx',
         entryFile: 'index.mdx',
-        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg)',
+        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg, Webframe, Video, Audio)',
       },
     ],
     components: [
@@ -100,6 +100,33 @@ export function getViewerCapabilities(): ViewerCapabilities {
         example: '<Webframe src="wireframe.html" height={420} />',
       },
       {
+        name: 'Video',
+        description: 'Native video playback from a sibling file or https URL (mp4, webm, ogv, mov, mkv)',
+        props: [
+          { name: 'src', required: true, description: 'artifact-relative path, e.g. "clip.mp4", or https URL' },
+          { name: 'title', required: false, description: 'caption under the player' },
+          { name: 'poster', required: false, description: 'cover image, same src rules as src' },
+          { name: 'controls', required: false, description: 'show controls (default true)' },
+          { name: 'autoplay', required: false, description: 'autoplay muted inline (default false)' },
+          { name: 'loop', required: false, description: 'loop playback (default false)' },
+          { name: 'muted', required: false, description: 'start muted (default false)' },
+        ],
+        example: '<Video src="clip.mp4" title="Demo de la ruta" />',
+      },
+      {
+        name: 'Audio',
+        description: 'Native audio playback from a sibling file or https URL (mp3, wav, ogg, m4a, aac, flac, opus)',
+        props: [
+          { name: 'src', required: true, description: 'artifact-relative path, e.g. "nota.mp3", or https URL' },
+          { name: 'title', required: false, description: 'label next to the player' },
+          { name: 'controls', required: false, description: 'show controls (default true)' },
+          { name: 'autoplay', required: false, description: 'autoplay muted (default false)' },
+          { name: 'loop', required: false, description: 'loop playback (default false)' },
+          { name: 'muted', required: false, description: 'start muted (default false)' },
+        ],
+        example: '<Audio src="nota.mp3" title="Resumen en audio" />',
+      },
+      {
         name: 'Callout',
         description: 'Highlighted note; children are rendered as markdown',
         props: [
@@ -134,10 +161,11 @@ export function getViewerCapabilities(): ViewerCapabilities {
     ],
     features: [
       'GFM: tables, task lists, strikethrough, autolinks',
+      'media: images via ![alt](asset.png) or ![alt](https://...) (png, jpg, gif, webp, avif, svg); video via <Video src="clip.mp4" /> and audio via <Audio src="nota.mp3" /> (sibling file or https URL); links via [text](https://...)',
       'fenced code with syntax highlighting',
       'mermaid diagrams via ```mermaid fences',
       'graphics expand: every Chart, Svg and mermaid diagram has an ⤢ button opening a full-viewport overlay (ESC/backdrop closes)',
-      'sections index: 3+ headings (h1-h3) get anchor ids and a Secciones sidebar with scroll-spy (sticky on desktop, stacked on mobile); <Section> titles join it automatically',
+      'sections index: 3+ headings (h1-h3) get anchor ids and a Secciones sidebar with scroll-spy and a filter search box (sticky on desktop, stacked on mobile); <Section> titles join it automatically',
       'frontmatter title/type feed the sidebar label and artifact type',
       'dark/light theme follows the dashboard (?theme=dark|light)',
       '?raw=1 serves the plain source',

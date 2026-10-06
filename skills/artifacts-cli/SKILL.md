@@ -61,7 +61,8 @@ artifact logs [-n 100]     # read the daemon log
   follows the dashboard (`?theme=light|dark`), `?raw=1` for the plain source.
   Frontmatter `title:`/`type:` feed the sidebar label and artifact type.
   MDX built-in components — `Chart` (bar/line/area/pie, recharts SSR),
-  `Stats`+`Stat`, `Callout` — render for real when props are literals
+  `Stats`+`Stat`, `Callout`, `Section`, `Svg`, `Webframe`, `Video`, `Audio` —
+  render for real when props are literals
   (inline your data; `data={sales}` is a placeholder, not a chart).
   `{/* comments */}` are hidden; unknown components show visible
   placeholders. Mermaid diagrams: fenced blocks tagged `mermaid` render
@@ -132,18 +133,20 @@ skeleton: [references/mdx-components.md](references/mdx-components.md).
 Decision rules:
 
 - Documents/reports/notes → `format: "md"`; add charts/KPIs/callouts/sections/graphics → `"mdx"`.
-- Long docs: 3+ `##` headings auto-build the Secciones sidebar — just keep adding headings.
+- Long docs: 3+ headings (h1–h3 count, so a `#` title plus two `##` sections is enough) auto-build the Secciones sidebar — just keep adding headings.
 - Components: `<Chart type=bar|line|area|pie data={[…]} />`, `<Stats><Stat
   value="…" label="…" delta="+…" /></Stats>`, `<Callout type=info|warning|
   success|danger title="…">markdown children</Callout>`, `<Section
-  title="…">markdown children</Section>`, `<Svg shapes={[{ type: "box", … }]} />`.
+  title="…">markdown children</Section>`, `<Svg shapes={[{ type: "box", … }]} />`,
+  `<Video src="clip.mp4" />`, `<Audio src="nota.mp3" />` (sibling file or https URL).
 - Diagrams: mermaid fences (```mermaid) — never ASCII art.
 - **Props must be literals**: inline the data (`data={[{ name: "Q1", v: 12 }]}`);
   `data={identifier}` renders as a placeholder, and unknown components are
   placeholders too. No imports: components are built-in.
 - **Folder standard**: artifacts are folders — reference sibling files by
   relative path (`![shot](asset.png)`, `[notes](other.md)` renders as a
-  viewer sub-route, `<Webframe src="wireframe.html" />` embeds HTML mocks).
+  viewer sub-route, `<Webframe src="wireframe.html" />` embeds HTML mocks,
+  `<Video src="clip.mp4" />` / `<Audio src="nota.mp3" />` play media).
   Attach bytes with `artifact_asset`, or symlink a folder into
   `docs/artifacts/<slug>/`.
 - **Relevance filter (default: prose)** — a visual must do work text cannot:
@@ -160,7 +163,7 @@ version): `artifact_capabilities` (omp tool) or `artifact capabilities --json`.
 Before generating an artifact, check what the viewer supports:
 `artifact capabilities --json` — formats, components with props and
 examples, mermaid usage, features, and the live guide URL. Prefer
-markdown/mdx for documents; use `Chart`/`Stats`/`Callout`/`Section`/`Svg` and mermaid
+markdown/mdx for documents; use `Chart`/`Stats`/`Callout`/`Section`/`Svg`/`Video`/`Audio` and mermaid
 fences instead of inventing custom components — unknown JSX renders as a
 placeholder, never a real widget. The same information, rendered with live
 examples, lives at `/mdx-guide` (`artifact guide`).

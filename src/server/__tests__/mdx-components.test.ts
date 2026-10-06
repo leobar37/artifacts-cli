@@ -137,6 +137,56 @@ describe('renderMdxComponent', () => {
     expect(renderMdxComponent('Webframe', {}, '')).toBeNull();
   });
 
+  it('Video renders a native player for sibling and https sources', () => {
+    const html = renderMdxComponent('Video', { src: 'clip.mp4', title: 'Demo' }, '');
+    expect(html).toContain('<video');
+    expect(html).toContain('src="clip.mp4"');
+    expect(html).toContain('controls');
+    expect(html).toContain('Demo');
+    const ext = renderMdxComponent('Video', { src: 'https://cdn.example.com/demo.mp4' }, '');
+    expect(ext).toContain('src="https://cdn.example.com/demo.mp4"');
+    const poster = renderMdxComponent('Video', { src: 'clip.mp4', poster: 'thumb.png' }, '');
+    expect(poster).toContain('poster="thumb.png"');
+  });
+
+  it('Video rejects unsafe sources', () => {
+    expect(renderMdxComponent('Video', { src: 'javascript:alert(1)' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: 'data:video/mp4;base64,xx' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: '../up.mp4' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: '/abs.mp4' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: 'clip.mp4', poster: '../evil.png' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', {}, '')).toBeNull();
+  });
+
+  it('Audio renders a native player and rejects unsafe sources', () => {
+    const html = renderMdxComponent('Audio', { src: 'nota.mp3', title: 'Resumen' }, '');
+    expect(html).toContain('<audio');
+    expect(html).toContain('src="nota.mp3"');
+    expect(html).toContain('Resumen');
+    expect(renderMdxComponent('Audio', { src: 'blob:https://x' }, '')).toBeNull();
+    expect(renderMdxComponent('Audio', { src: '//cdn.example.com/a.mp3' }, '')).toBeNull();
+    expect(renderMdxComponent('Audio', {}, '')).toBeNull();
+  });
+
+  it('autoplay always renders muted (browser policy)', () => {
+    expect(renderMdxComponent('Video', { src: 'clip.mp4', autoplay: true }, '')).toContain('autoplay muted playsinline');
+    expect(renderMdxComponent('Audio', { src: 'nota.mp3', autoplay: true }, '')).toContain('autoplay muted');
+  });
+
+  it('rejects attribute-breakout payloads in media and frame sources', () => {
+    expect(renderMdxComponent('Video', { src: 'a" onerror="alert(1)' }, '')).toBeNull();
+    expect(renderMdxComponent('Audio', { src: "a' onerror='alert(1)" }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: 'clip.mp4', poster: 'p" onerror="alert(1)' }, '')).toBeNull();
+    expect(renderMdxComponent('Webframe', { src: 'x" onload="alert(1)' }, '')).toBeNull();
+    expect(renderMdxComponent('Video', { src: 'http://cdn.example.com/a.mp4' }, '')).toBeNull();
+  });
+
+  it('escapes quotes in rendered captions and urls', () => {
+    const html = renderMdxComponent('Video', { src: 'clip.mp4', title: 'a"b<c>' }, '');
+    expect(html).toContain('a&quot;b&lt;c&gt;');
+    expect(html).not.toContain('a"b<c>');
+  });
+
   it('Stats wraps children; unknown tags return null', () => {
     expect(renderMdxComponent('Stats', {}, '<div class="mv-stat"></div>')).toContain('mv-stats');
     expect(renderMdxComponent('Nope', {}, '')).toBeNull();

@@ -80,10 +80,10 @@ to share. With a project id: that project's dashboard (`/p/<id>/`).
 ## `artifact capabilities [--json]`
 
 Print what the viewer supports: artifact formats (`html|md|mdx`), the built-in
-MDX components with their props (`Chart`, `Stats`, `Stat`, `Callout`), mermaid
-fences and viewer features. `--json` emits machine-readable output (same shape
-for agents and scripts) and includes the live `/mdx-guide` URL when the daemon
-is running.
+MDX components with their props (`Chart`, `Stats`, `Stat`, `Callout`, `Section`,
+`Svg`, `Webframe`, `Video`, `Audio`), mermaid fences and viewer features.
+`--json` emits machine-readable output (same shape for agents and scripts)
+and includes the live `/mdx-guide` URL when the daemon is running.
 
 ```bash
 artifact capabilities          # human table

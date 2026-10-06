@@ -139,6 +139,15 @@ describe('renderMarkdownBody mdx components', () => {
     expect(html).toContain('<details>');
     expect(html).not.toContain('mv-comp');
   });
+
+  it('renders Video/Audio components end-to-end, images stay markdown', () => {
+    const html = renderMarkdownBody('<Video src="clip.mp4" title="Demo" />\n\n<Audio src="nota.mp3" />\n\n![shot](asset.png)\n', 'mdx');
+    expect(html).toContain('<video');
+    expect(html).toContain('src="clip.mp4"');
+    expect(html).toContain('<audio');
+    expect(html).toContain('src="nota.mp3"');
+    expect(html).toContain('src="asset.png"');
+  });
 });
 
 describe('renderMarkdownViewer', () => {
@@ -190,9 +199,32 @@ describe('renderMarkdownViewer sections index', () => {
     expect(short).not.toContain('aria-label="Secciones"');
   });
 
+  it('ships a filter search box with an empty state', () => {
+    const page = renderMarkdownViewer('# T\n\n## Uno\n\nx\n\n## Dos\n\nx\n\n## Tres\n\nx\n', { slug: 'doc', format: 'md' });
+    expect(page).toContain('class="mv-toc-search"');
+    expect(page).toContain('Filtrar secciones');
+    expect(page).toContain('mv-toc-empty');
+    expect(page).toContain('Sin coincidencias');
+  });
+
+  it('wires the scroll-spy script only when the sidebar renders', () => {
+    const withToc = renderMarkdownViewer('# T\n\n## Uno\n\nx\n\n## Dos\n\nx\n\n## Tres\n\nx\n', { slug: 'doc', format: 'md' });
+    expect(withToc).toContain('IntersectionObserver');
+    const short = renderMarkdownViewer('# Hi\n', { slug: 'doc', format: 'md' });
+    expect(short).not.toContain('IntersectionObserver');
+    expect(short).not.toContain('<input class="mv-toc-search"');
+  });
+
   it('dedupes repeated titles and strips accents', () => {
     const page = renderMarkdownViewer('## Café\n\nx\n\n## Café\n\nx\n\n## Otro\n\nx\n', { slug: 'd', format: 'md' });
     expect(page).toContain('id="cafe"');
     expect(page).toContain('id="cafe-2"');
+  });
+
+  it('rewrites colliding explicit ids so every TOC link has an element', () => {
+    const page = renderMarkdownViewer('<h2 id="dup">Uno</h2>\n\n<h2 id="dup">Dos</h2>\n\n## Tres\n', { slug: 'd', format: 'md' });
+    expect(page).toContain('<h2 id="dup">Uno');
+    expect(page).toContain('<h2 id="dup-2">Dos');
+    expect(page).toContain('<a href="#dup-2">Dos</a>');
   });
 });

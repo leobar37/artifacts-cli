@@ -40,6 +40,8 @@ describe('GET /mdx-guide', () => {
     // Sections tutorial: card component + automatic index sidebar.
     expect(body).toContain('mv-section');
     expect(body).toContain('aria-label="Secciones"');
+    expect(body).toContain('class="mv-toc-search"');
+    expect(body).toContain('IntersectionObserver');
     // Declarative SVG tutorial renders inline svg.
     expect(body).toContain('<svg viewBox=');
     // Mermaid section: containers + client boot script.

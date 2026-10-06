@@ -102,6 +102,13 @@ describe("agent contract", () => {
     await res.body?.cancel().catch(() => {});
   });
 
+  it("serves the guide and mermaid bundle publicly on the agent origin", async () => {
+    const guide = await fetch(`${baseUrl}/mdx-guide`);
+    expect(guide.status).toBe(200);
+    expect(await guide.text()).toContain('aria-label="Secciones"');
+    const bundle = await fetch(`${baseUrl}/assets/mermaid.min.js`);
+    expect(bundle.status).toBe(200);
+  });
   it("does not serve the dashboard SPA", async () => {
     const res = await fetch(`${baseUrl}/`, { headers: auth });
     expect(res.status).toBe(404);

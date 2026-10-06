@@ -11,7 +11,7 @@ describe('getViewerCapabilities', () => {
   it('documents every renderer registered in mdx-components', () => {
     const documented = new Set(getViewerCapabilities().components.map((c) => c.name));
     // Keep in sync with renderMdxComponent's switch.
-    expect(documented).toEqual(new Set(['Chart', 'Stats', 'Stat', 'Callout', 'Webframe', 'Section', 'Svg']));
+    expect(documented).toEqual(new Set(['Chart', 'Stats', 'Stat', 'Callout', 'Webframe', 'Video', 'Audio', 'Section', 'Svg']));
   });
 
   it('mermaid is documented with fence usage', () => {

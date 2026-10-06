@@ -129,10 +129,10 @@ Every `##` / `###` heading gets an anchor id automatically (accents
 stripped: `Qué es` → `#que-es`, hover any heading for its `#` link).
 When a document has **3 or more headings**, the viewer adds a
 **Secciones sidebar**: sticky index on desktop, stacked card on mobile,
-with scroll-spy highlighting where you are. Everything you keep adding
+with scroll-spy highlighting where you are and a **search box to filter**
+entries. Everything you keep adding
 with `##` shows up there — no configuration, just keep writing markdown
 and readers can jump around the document.
-
 For a highlighted block with its own card, use `Section` (its title is a
 regular `h2`, so it joins the sidebar too; children are **markdown**):
 
@@ -293,6 +293,8 @@ docs/artifacts/un-artifact/
 ├── index.mdx        # entry (versioned via artifact_create)
 ├── asset.png        # ![shot](asset.png)
 ├── logo.svg         # <img src="logo.svg"> or ![](logo.svg)
+├── clip.mp4         # <Video src="clip.mp4" />
+├── nota.mp3         # <Audio src="nota.mp3" />
 ├── other.html       # browsable sub-route, or embed with <Webframe>
 └── other.md         # [notes](other.md) → renders as a viewer sub-route
 ```
@@ -300,6 +302,8 @@ docs/artifacts/un-artifact/
 | Sibling | Referenced as | What the reader gets |
 | --- | --- | --- |
 | image/svg | `![alt](asset.png)` | inline image |
+| video | `<Video src="clip.mp4" />` | native player (mp4, webm, ogv, mov, mkv) |
+| audio | `<Audio src="nota.mp3" />` | native player (mp3, wav, ogg, m4a, aac, flac, opus) |
 | `.md` / `.mdx` | `[notes](other.md)` | viewer-rendered sub-route |
 | `.html` | `<Webframe src="other.html" />` | browser-like embed below |
 | any file | link | served with proper MIME |
@@ -313,11 +317,38 @@ artifact-relative `src`, `height` 160-720):
 
 <Webframe src="frame-demo.html" title="wireframe.html — live demo" height={340} />
 
+## Media — images, video, audio, links
+
+Images work with plain markdown — sibling file or external URL:
+
+`![foto de la ruta](asset.png)` or `![logo](https://cdn.example.com/logo.png)`
+(png, jpg, gif, webp, avif, svg — max-width constrained).
+
+Video and audio need the built-in components. `src` is a sibling file or an
+`https://` URL (`javascript:`, `data:`, `blob:` and `..` traversals are
+rejected and render as a visible placeholder):
+
+```mdx
+<Video src="clip.mp4" title="Demo de la ruta" poster="thumb.png" />
+<Audio src="nota.mp3" title="Resumen en audio" />
+<Video src="https://cdn.example.com/demo.mp4" title="External playback" />
+```
+
+| Prop | Notes |
+| --- | --- |
+| `src` | required — sibling path or `https://` URL |
+| `title` | optional caption under/next to the player |
+| `poster` | `Video` only — cover image, same src rules |
+| `controls` | default `true` |
+| `autoplay`, `loop`, `muted` | default `false` (`autoplay` always plays muted — browser policy) |
+
+Links (internal sub-routes or external) are plain markdown:
+`[notes](other.md)`, `[docs](https://example.com)`.
+
 ## Everything else is Markdown + GFM
 
 - Task lists: `- [x] done`, `- [ ] pending`
 - Strikethrough: `~~old~~`, autolinks, footnotes-free simple prose
-- Images: `![alt](url)` — max-width constrained
 
 ```tsx
 // Fenced code is syntax-highlighted (ts, tsx, py, json, bash, ...)

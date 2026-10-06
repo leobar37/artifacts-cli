@@ -3,7 +3,8 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { streamSSE } from "hono/streaming";
 import type { Server } from "http";
 import { fileURLToPath } from "url";
-import { existsSync, readFileSync, statSync } from "fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "fs";
+import { Readable } from "stream";
 import { timingSafeEqual } from "crypto";
 import path from "path";
 import healthRouter from "./routes/health.js";
@@ -72,6 +73,23 @@ const ARTIFACT_MIME: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".ico": "image/x-icon",
+  ".mp4": "video/mp4",
+  ".m4v": "video/x-m4v",
+  ".webm": "video/webm",
+  ".ogv": "video/ogg",
+  ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".wav": "audio/wav",
+  ".flac": "audio/flac",
+  ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
+  ".opus": "audio/opus",
+  ".weba": "audio/webm",
+  ".mkv": "video/x-matroska",
   ".txt": "text/plain; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
   ".mdx": "text/markdown; charset=utf-8",
@@ -131,10 +149,13 @@ export function serveArtifactFile(c: Context, base: string, requestPath: string)
     return c.text("Forbidden", 403);
   }
 
+  let size: number;
   try {
-    if (!existsSync(file) || !statSync(file).isFile()) {
+    const stat = statSync(file);
+    if (!existsSync(file) || !stat.isFile()) {
       return c.text("Not found", 404);
     }
+    size = stat.size;
   } catch {
     return c.text("Not found", 404);
   }
@@ -155,8 +176,51 @@ export function serveArtifactFile(c: Context, base: string, requestPath: string)
   }
 
   const mime = ARTIFACT_MIME[ext] ?? "application/octet-stream";
+  const range = c.req.header("range");
+  if (range) {
+    const partial = serveRange(file, mime, size, range.trim());
+    if (partial) return partial;
+  }
   return new Response(readFileSync(file), {
-    headers: { "Content-Type": mime },
+    headers: { "Content-Type": mime, "Accept-Ranges": "bytes", "Content-Length": String(size), "X-Content-Type-Options": "nosniff" },
+  });
+}
+
+/**
+ * Single-range (`bytes=start-end`) partial responses so media elements can
+ * seek without re-downloading the whole file. Anything unparseable or
+ * unsatisfiable falls back to null (caller serves the full 200) except
+ * out-of-bounds ranges, which correctly answer 416.
+ */
+function serveRange(file: string, mime: string, size: number, range: string): Response | null {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!match) return null;
+  let start = match[1] === "" ? NaN : Number(match[1]);
+  let end = match[2] === "" ? NaN : Number(match[2]);
+  if (Number.isNaN(start) && Number.isNaN(end)) return null;
+  if (Number.isNaN(start)) {
+    if (end === 0) return null;
+    start = Math.max(0, size - end);
+    end = size - 1;
+  } else if (Number.isNaN(end) || end >= size) {
+    end = size - 1;
+  }
+  if (start >= size || start > end) {
+    return new Response("Range Not Satisfiable", {
+      status: 416,
+      headers: { "Content-Range": `bytes */${size}` },
+    });
+  }
+  const stream = Readable.toWeb(createReadStream(file, { start, end })) as ReadableStream;
+  return new Response(stream, {
+    status: 206,
+    headers: {
+      "Content-Type": mime,
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(end - start + 1),
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "X-Content-Type-Options": "nosniff",
+    },
   });
 }
 
@@ -211,6 +275,23 @@ export async function createArtifactServer(
       if (denied) return denied;
       return c.json({ status: "ok", role: "agent", remoteId, timestamp: new Date().toISOString(), version: ARTIFACT_VERSION });
     });
+
+    // Static public assets (same handlers as local mode): the viewer shell
+    // links /mdx-guide and /assets/mermaid.min.js absolutely, and browsers
+    // send no bearer token on navigation/subresources — so these stay
+    // public here too. No project data: fixed guide, demo page, OSS bundle.
+    app.get("/mdx-guide", (c) => {
+      const theme: ViewerTheme = c.req.query("theme") === "light" ? "light" : "dark";
+      return c.html(
+        renderMarkdownViewer(getMdxGuideSource(), { slug: "mdx-guide", format: "mdx", theme }),
+        200,
+        { "Cache-Control": "no-store" },
+      );
+    });
+    app.get("/assets/mermaid.min.js", () => serveMermaidAsset());
+    app.get("/frame-demo.html", (c) =>
+      c.html(mdxGuideFrameDemo(), 200, { "Cache-Control": "no-store" }),
+    );
 
     const agentApp = new Hono<ProjectEnv>();
     agentApp.use("*", async (c, next) => {

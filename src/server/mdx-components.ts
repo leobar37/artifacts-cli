@@ -331,8 +331,32 @@ function renderStat(p: JsxProps): string | null {
 }
 
 function escape(text: string): string {
-  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
+/**
+ * Artifact-relative sibling path: no scheme, no absolute path, no
+ * traversal, and no characters that could break out of an HTML attribute
+ * (`"`/`'`/`<`/`>` are never valid in the sibling names the artifact_asset
+ * tooling produces; spaces stay allowed — browsers encode them).
+ */
+function isArtifactRelativePath(s: string): boolean {
+  return !(
+    !s ||
+    s.includes("://") ||
+    s.startsWith("//") ||
+    s.startsWith("/") ||
+    s.split("/").some((p) => p === "..") ||
+    s.includes("\\") ||
+    s.includes("\0") ||
+    /["'<>]/.test(s)
+  );
+}
+
 /**
  * Browser-like embed for a sibling file of the same artifact (wireframes,
  * mock pages, generated HTML). Only artifact-relative paths: the iframe must
@@ -340,18 +364,78 @@ function escape(text: string): string {
  */
 function renderWebframe(p: JsxProps): string | null {
   const src = typeof p.src === "string" ? p.src.trim() : "";
-  const unsafe =
-    !src ||
-    src.includes("://") ||
-    src.startsWith("//") ||
-    src.startsWith("/") ||
-    src.split("/").some((s) => s === "..") ||
-    src.includes("\\") ||
-    src.includes("\0");
-  if (unsafe) return null;
+  if (!isArtifactRelativePath(src)) return null;
   const height = typeof p.height === "number" ? Math.min(720, Math.max(160, p.height)) : 360;
   const title = typeof p.title === "string" && p.title ? escape(p.title) : src;
   return `<div class="mv-frame"><div class="mv-frame-bar"><span class="mv-frame-dot"></span><span class="mv-frame-dot"></span><span class="mv-frame-dot"></span><span class="mv-frame-url">${escape(src)}</span></div><iframe class="mv-frame-body" src="${escape(src)}" title="${title}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" style="height:${height}px"></iframe></div>`;
+}
+
+/**
+ * Media source validation: artifact-relative sibling files (same predicate
+ * as Webframe) plus https:// URLs. Unlike iframes, <video>/<audio> never
+ * execute code, so off-origin playback is safe — but plaintext http://
+ * stays blocked (mixed-content downgrade + referrer/IP exposure), as do
+ * data:/blob:/javascript: schemes, protocol-relative and absolute paths,
+ * traversal, and attribute-breaking characters.
+ */
+function isMediaSrc(src: string): boolean {
+  const s = src.trim();
+  if (!s || s.includes("\0") || s.includes("\\")) return false;
+  if (/^https:\/\/[^/]/i.test(s)) return !/["'<>\s]/.test(s);
+  if (/^[a-zA-Z][\w+.~-]*:/.test(s)) return false;
+  return isArtifactRelativePath(s);
+}
+
+/**
+ * Native playback: <Video src="clip.mp4" title="..." poster="thumb.png" />
+ * and <Audio src="clip.mp3" title="..." />. Siblings play inline thanks to
+ * the video/audio MIME entries; external https URLs also play.
+ */
+function renderVideo(p: JsxProps): string | null {
+  const src = typeof p.src === "string" ? p.src.trim() : "";
+  if (!isMediaSrc(src)) return null;
+  const poster = typeof p.poster === "string" && p.poster.trim() ? p.poster.trim() : "";
+  if (poster && !isMediaSrc(poster)) return null;
+  const title = typeof p.title === "string" && p.title ? escape(p.title) : "";
+  const controls = typeof p.controls === "boolean" ? p.controls : true;
+  const autoplay = typeof p.autoplay === "boolean" ? p.autoplay : false;
+  const loop = typeof p.loop === "boolean" ? p.loop : false;
+  const muted = typeof p.muted === "boolean" ? p.muted : false;
+  const attrs = [
+    `src="${escape(src)}"`,
+    controls ? "controls" : "",
+    autoplay ? "autoplay muted playsinline" : "",
+    loop ? "loop" : "",
+    muted ? "muted" : "",
+    `preload="metadata"`,
+    poster ? `poster="${escape(poster)}"` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const caption = title ? `<figcaption class="mv-media-cap">${title}</figcaption>` : "";
+  return `<figure class="mv-media"><video class="mv-video" ${attrs}></video>${caption}</figure>`;
+}
+
+function renderAudio(p: JsxProps): string | null {
+  const src = typeof p.src === "string" ? p.src.trim() : "";
+  if (!isMediaSrc(src)) return null;
+  const title = typeof p.title === "string" && p.title ? escape(p.title) : "";
+  const controls = typeof p.controls === "boolean" ? p.controls : true;
+  const autoplay = typeof p.autoplay === "boolean" ? p.autoplay : false;
+  const loop = typeof p.loop === "boolean" ? p.loop : false;
+  const muted = typeof p.muted === "boolean" ? p.muted : false;
+  const attrs = [
+    `src="${escape(src)}"`,
+    controls ? "controls" : "",
+    autoplay ? "autoplay muted" : "",
+    loop ? "loop" : "",
+    !autoplay && muted ? "muted" : "",
+    `preload="metadata"`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const caption = title ? `<span class="mv-media-cap">${title}</span>` : "";
+  return `<figure class="mv-media mv-media--audio"><audio class="mv-audio" ${attrs}></audio>${caption}</figure>`;
 }
 
 /**
@@ -371,6 +455,10 @@ export function renderMdxComponent(tag: string, props: JsxProps, childrenHtml: s
       return `<div class="mv-stats">${childrenHtml}</div>`;
     case "Webframe":
       return renderWebframe(props);
+    case "Video":
+      return renderVideo(props);
+    case "Audio":
+      return renderAudio(props);
     case "Section":
       return renderSection(props, childrenHtml);
     case "Svg":

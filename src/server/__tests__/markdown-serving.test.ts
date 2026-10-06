@@ -80,6 +80,46 @@ describe('serveArtifactFile markdown', () => {
     expect(svg.headers.get("content-type")).toBe("image/svg+xml");
   });
 
+  it("serves sibling video/audio with playable mime", async () => {
+    mkdirSync(join(base, "media"), { recursive: true });
+    writeFileSync(join(base, "media", "index.mdx"), "# Media\n");
+    writeFileSync(join(base, "media", "clip.mp4"), "fake-mp4");
+    writeFileSync(join(base, "media", "nota.mp3"), "fake-mp3");
+    writeFileSync(join(base, "media", "clip.mkv"), "fake-mkv");
+    writeFileSync(join(base, "media", "s.flac"), "fake-flac");
+
+    const mp4 = await app.request("/artifacts/media/clip.mp4");
+    expect(mp4.headers.get("content-type")).toBe("video/mp4");
+    expect(mp4.headers.get("x-content-type-options")).toBe("nosniff");
+    const mp3 = await app.request("/artifacts/media/nota.mp3");
+    expect(mp3.headers.get("content-type")).toBe("audio/mpeg");
+    const mkv = await app.request("/artifacts/media/clip.mkv");
+    expect(mkv.headers.get("content-type")).toBe("video/x-matroska");
+    const flac = await app.request("/artifacts/media/s.flac");
+    expect(flac.headers.get("content-type")).toBe("audio/flac");
+  });
+
+  it("serves byte ranges with 206 and advertises accept-ranges", async () => {
+    mkdirSync(join(base, "media"), { recursive: true });
+    writeFileSync(join(base, "media", "clip.mp4"), "0123456789");
+
+    const full = await app.request("/artifacts/media/clip.mp4");
+    expect(full.status).toBe(200);
+    expect(full.headers.get("accept-ranges")).toBe("bytes");
+
+    const part = await app.request("/artifacts/media/clip.mp4", { headers: { range: "bytes=2-5" } });
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect(await part.text()).toBe("2345");
+
+    const tail = await app.request("/artifacts/media/clip.mp4", { headers: { range: "bytes=7-" } });
+    expect(tail.status).toBe(206);
+    expect(await tail.text()).toBe("789");
+
+    const bad = await app.request("/artifacts/media/clip.mp4", { headers: { range: "bytes=99-100" } });
+    expect(bad.status).toBe(416);
+  });
+
   it('still blocks traversal', async () => {
     const res = await app.request('/artifacts/..%2f..%2fetc%2fpasswd');
     expect(res.status).toBe(403);
