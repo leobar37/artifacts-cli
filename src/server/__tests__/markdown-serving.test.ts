@@ -125,3 +125,56 @@ describe('serveArtifactFile markdown', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('sibling JSON sources for data views (P-003)', () => {
+  beforeEach(() => {
+    mkdirSync(join(base, 'pack'), { recursive: true });
+    writeFileSync(join(base, 'pack', 'index.mdx'), '# Pack\n');
+    writeFileSync(join(base, 'pack', 'tasks.json'), '{"version":1,"items":[]}');
+    mkdirSync(join(base, 'pack', 'guide'), { recursive: true });
+    writeFileSync(join(base, 'pack', 'guide', 'part1.mdx'), '<TaskList src="local.json" title="Board" />\n');
+    writeFileSync(join(base, 'pack', 'guide', 'local.json'), '{"version":1,"entries":[]}');
+  });
+
+  it('serves sibling json with the JSON mime under a local route', async () => {
+    const res = await app.request('/artifacts/pack/tasks.json');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await res.text()).toBe('{"version":1,"items":[]}');
+  });
+
+  it('serves sibling json under nested document routes', async () => {
+    const res = await app.request('/artifacts/pack/guide/local.json');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+  });
+
+  it('hydrates src placeholders: viewer page ships the data boot script', async () => {
+    const res = await app.request('/artifacts/pack/guide/part1.mdx');
+    const body = await res.text();
+    expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(body).toContain('class="mv-data mv-data-src"');
+    expect(body).toContain('data-kind="tasklist"');
+    expect(body).toContain('data-src="local.json"');
+    expect(body).toContain('data-title="Board"');
+    expect(body).toContain('mvHydrateDataSrc');
+    expect(body).toContain('var cache = new Map()');
+    // Never forward a client token with data fetches.
+    expect(body).not.toContain('Authorization');
+  });
+
+  it('omits the data boot script when the page has no src placeholders', async () => {
+    const res = await app.request('/artifacts/pack/index.mdx');
+    const body = await res.text();
+    expect(body).toContain('mv-content');
+    expect(body).not.toContain('mvHydrateDataSrc');
+  });
+
+  it('rejects traversal toward json sources', async () => {
+    const encoded = await app.request('/artifacts/pack/%2e%2e%2fsecret.json');
+    expect(encoded.status).toBe(403);
+    const dotted = await app.request('/artifacts/pack/..%2f..%2fsecret.json');
+    expect(dotted.status).toBe(403);
+  });
+});

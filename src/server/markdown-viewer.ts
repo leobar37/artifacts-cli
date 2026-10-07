@@ -42,6 +42,7 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   const tocScript = withToc ? tocBootScript() : "";
   const mermaidScript = anchored.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
   const graphScript = anchored.includes('class="mv-graph') ? graphBootScript() : "";
+  const dataScript = anchored.includes('class="mv-data mv-data-src"') ? dataBootScript() : "";
   const content = withToc
     ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><p class="mv-toc-title">Secciones</p><input class="mv-toc-search" type="search" placeholder="Filtrar secciones…" aria-label="Filtrar secciones" autocomplete="off"><ul>${toc
         .map((e) => `<li class="mv-toc-l${e.level}"><a href="#${e.id}">${escapeHtml(e.text)}</a></li>`)
@@ -66,6 +67,7 @@ ${content}
 ${tocScript}
 ${mermaidScript}
 ${graphScript}
+${dataScript}
 </body>
 </html>`;
 }
@@ -203,6 +205,341 @@ function graphBootScript(): string {
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") close();
   });
+})();
+</script>`;
+}
+
+/**
+ * Hydration for `.mv-data-src` placeholders (TaskList/Kanban/Properties with
+ * a sibling JSON `src`). Mirrors the boundary rules of
+ * data-components-runtime.ts (which cannot be imported client-side): the
+ * source must be a safe relative .json path resolving inside the current
+ * document's artifact namespace on the same origin, redirects may not escape
+ * that boundary, the response is byte-capped at 1 MiB even without
+ * Content-Length, JSON is parsed without evaluation, and the DOM is built
+ * with createElement/textContent only. No Authorization header is ever sent
+ * (fetch defaults to same-origin credentials for cookies only). Same-src
+ * loads are deduplicated per boot via a fresh Map, so a viewer reload never
+ * reuses stale data.
+ */
+function dataBootScript(): string {
+  return `<script>
+(function () {
+  var MAX_BYTES = 1048576;
+  var MAX_ITEMS = 1000;
+  var MAX_COLUMNS = 50;
+  var MAX_ENTRIES = 100;
+  var nodes = Array.prototype.slice.call(document.querySelectorAll(".mv-data-src"));
+  if (!nodes.length) return;
+  var cache = new Map(); // resolved href -> Promise; fresh per boot (reload re-runs this script)
+
+  // Artifact namespace prefix of the current page: /p/:project/:slug or
+  // /r/:remote/p/:project/:slug, where :slug is the first segment after the
+  // reserved "artifacts" segment (omitted segment tolerated). Null when the
+  // page is not inside a known artifact family.
+  function prefixOf(pathname) {
+    var segs = pathname.split("/");
+    var i;
+    if (segs[1] === "p") i = 2;
+    else if (segs[1] === "r" && segs[3] === "p") i = 4;
+    else return null;
+    var parts = segs.slice(0, i + 1);
+    if (segs[i + 1] === "artifacts") {
+      if (!segs[i + 2]) return null;
+      parts.push("artifacts", segs[i + 2]);
+    } else {
+      if (!segs[i + 1]) return null;
+      parts.push(segs[i + 1]);
+    }
+    return parts.join("/") || null;
+  }
+  var prefix = prefixOf(location.pathname);
+
+  function decode(value) {
+    try { return decodeURIComponent(value); } catch (err) { return null; }
+  }
+
+  function hasControlChars(value) {
+    return /[\\u0000-\\u001f\\u007f-\\u009f]/.test(value);
+  }
+
+  // Client-side mirror of the server's isSafeSrc (defense in depth: the
+  // server only emits placeholders for safe src values). One decode round is
+  // sufficient here because the browser URL parser keeps %2e%2e encoded, so
+  // encoded traversal cannot escape client-side either.
+  function safeSrc(src) {
+    if (typeof src !== "string" || src === "" || src.length > 512) return false;
+    var dec = decode(src);
+    if (dec === null || !/\\.json$/.test(dec)) return false;
+    if (hasControlChars(src) || hasControlChars(dec)) return false;
+    if (src.indexOf("\\\\") !== -1 || src.indexOf("?") !== -1 || src.indexOf("#") !== -1) return false;
+    if (src.charAt(0) === "/" || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(src)) return false;
+    var parts = dec.split("/");
+    for (var i = 0; i < parts.length; i++) { if (parts[i] === "..") return false; }
+    return true;
+  }
+
+  // Client-side mirror of isSafeHref: relative sibling paths and in-document
+  // fragments only. Item links stay document-relative so the browser (not
+  // this script) resolves them against the current page.
+  function safeHref(href) {
+    if (typeof href !== "string" || href === "") return false;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) return false;
+    if (href.charAt(0) === "/" || href.indexOf("//") === 0 || href.indexOf("\\\\") !== -1 || href.indexOf("?") !== -1) return false;
+    var dec = decode(href);
+    if (dec === null || hasControlChars(dec) || dec.indexOf("\\\\") !== -1 || dec.indexOf("?") !== -1) return false;
+    var parts = dec.split("#")[0].split("/");
+    for (var i = 0; i < parts.length; i++) { if (parts[i] === "..") return false; }
+    return true;
+  }
+
+  function clear(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function fail(el, kind, message) {
+    clear(el);
+    var box = document.createElement("div");
+    box.className = "mv-data-error";
+    box.setAttribute("role", "alert");
+    var head = document.createElement("p");
+    head.className = "mv-data-error-title";
+    head.textContent = kind + ": data could not be loaded";
+    var list = document.createElement("ul");
+    list.className = "mv-data-error-list";
+    var item = document.createElement("li");
+    item.textContent = message;
+    list.appendChild(item);
+    box.appendChild(head);
+    box.appendChild(list);
+    el.appendChild(box);
+  }
+
+  // Bounded body read: pre-check Content-Length when present, then stream
+  // with a running byte cap so oversized payloads abort even when the length
+  // is unknown or untrustworthy.
+  function loadText(url) {
+    return fetch(url, { redirect: "follow", credentials: "same-origin" }).then(function (res) {
+      if (!res.ok) throw new Error("the data source answered HTTP " + res.status);
+      if (blockedUrl(res.url)) throw new Error("the data source redirected outside the artifact boundary");
+      var declared = res.headers.get("content-length");
+      if (declared !== null && Number(declared) > MAX_BYTES) throw new Error("the data source exceeds the 1 MiB byte cap");
+      if (!res.body || !res.body.getReader) {
+        return res.text().then(function (text) {
+          if (new TextEncoder().encode(text).length > MAX_BYTES) throw new Error("the data source exceeds the 1 MiB byte cap");
+          return text;
+        });
+      }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder("utf-8");
+      var total = 0;
+      var text = "";
+      function pump() {
+        return reader.read().then(function (next) {
+          if (next.done) { text += decoder.decode(); return text; }
+          total += next.value.byteLength;
+          if (total > MAX_BYTES) {
+            try { reader.cancel(); } catch (err) { /* already closed */ }
+            throw new Error("the data source exceeds the 1 MiB byte cap");
+          }
+          text += decoder.decode(next.value, { stream: true });
+          return pump();
+        });
+      }
+      return pump();
+    });
+  }
+
+  function blockedUrl(candidate) {
+    try {
+      var url = new URL(candidate, location.href);
+      if (url.origin !== location.origin) return true;
+      if (prefix === null) return true;
+      return url.pathname !== prefix && url.pathname.indexOf(prefix + "/") !== 0;
+    } catch (err) {
+      return true;
+    }
+  }
+
+  // Minimal shape check (server renderers validate fully; hydration only
+  // needs the version, the arrays it renders, and the display caps).
+  function shapeProblem(kind, data) {
+    if (data === null || typeof data !== "object" || Array.isArray(data)) return "the dataset must be a JSON object";
+    if (data.version !== 1) return "unsupported dataset version (expected version 1)";
+    if (kind === "properties") {
+      if (!Array.isArray(data.entries)) return "entries must be an array";
+      if (data.entries.length > MAX_ENTRIES) return "the dataset has more than " + MAX_ENTRIES + " entries";
+      return null;
+    }
+    if (!Array.isArray(data.items)) return "items must be an array";
+    if (data.items.length > MAX_ITEMS) return "the dataset has more than " + MAX_ITEMS + " items";
+    if (kind === "kanban") {
+      if (!Array.isArray(data.columns)) return "columns must be an array";
+      if (data.columns.length > MAX_COLUMNS) return "the dataset has more than " + MAX_COLUMNS + " columns";
+    }
+    return null;
+  }
+
+  function text(value) {
+    return typeof value === "string" || typeof value === "number" ? String(value) : "";
+  }
+
+  function workItem(raw) {
+    var item = raw && typeof raw === "object" ? raw : {};
+    var li = document.createElement("li");
+    li.className = "mv-task";
+    var head = document.createElement("div");
+    head.className = "mv-task-head";
+    var badge = document.createElement("span");
+    badge.className = "mv-badge";
+    badge.textContent = text(item.status);
+    head.appendChild(badge);
+    var href = typeof item.href === "string" && safeHref(item.href) ? item.href : null;
+    var title = document.createElement(href ? "a" : "span");
+    title.className = "mv-task-title";
+    if (href) title.setAttribute("href", href);
+    title.textContent = text(item.title);
+    head.appendChild(title);
+    if (typeof item.owner === "string" && item.owner) {
+      var owner = document.createElement("span");
+      owner.className = "mv-task-owner";
+      owner.textContent = item.owner;
+      head.appendChild(owner);
+    }
+    li.appendChild(head);
+    if (typeof item.description === "string" && item.description) {
+      var desc = document.createElement("p");
+      desc.className = "mv-task-desc";
+      desc.textContent = item.description;
+      li.appendChild(desc);
+    }
+    return li;
+  }
+
+  function appendTitle(section, title) {
+    if (!title) return;
+    var p = document.createElement("p");
+    p.className = "mv-data-title";
+    p.textContent = title;
+    section.appendChild(p);
+  }
+
+  function appendEmpty(section, message) {
+    var empty = document.createElement("div");
+    empty.className = "mv-data-empty";
+    empty.textContent = message;
+    section.appendChild(empty);
+  }
+
+  // Flat task list preserving item order (grouped rendering needs the
+  // groupBy prop, which is not carried on the placeholder attributes).
+  function buildTaskList(data, title) {
+    var section = document.createElement("section");
+    section.className = "mv-data mv-tasklist";
+    appendTitle(section, title);
+    if (!data.items.length) { appendEmpty(section, "No items in this task list."); return section; }
+    var ul = document.createElement("ul");
+    ul.className = "mv-tasklist-items";
+    for (var i = 0; i < data.items.length; i++) ul.appendChild(workItem(data.items[i]));
+    section.appendChild(ul);
+    return section;
+  }
+
+  function buildKanban(data, title) {
+    var section = document.createElement("section");
+    section.className = "mv-data mv-kanban";
+    appendTitle(section, title);
+    if (!data.columns.length) { appendEmpty(section, "This board has no columns and no items."); return section; }
+    var wrap = document.createElement("div");
+    wrap.className = "mv-kanban-columns";
+    for (var c = 0; c < data.columns.length; c++) {
+      var col = data.columns[c] && typeof data.columns[c] === "object" ? data.columns[c] : {};
+      var inColumn = data.items.filter(function (item) {
+        return item && typeof item === "object" && item.status === col.id;
+      });
+      var colEl = document.createElement("div");
+      colEl.className = "mv-kanban-col";
+      var label = document.createElement("p");
+      label.className = "mv-kanban-col-label";
+      label.textContent = text(col.label);
+      var count = document.createElement("span");
+      count.className = "mv-kanban-count";
+      count.textContent = String(inColumn.length);
+      label.appendChild(count);
+      colEl.appendChild(label);
+      if (inColumn.length) {
+        var ul = document.createElement("ul");
+        ul.className = "mv-kanban-items";
+        for (var i = 0; i < inColumn.length; i++) ul.appendChild(workItem(inColumn[i]));
+        colEl.appendChild(ul);
+      } else {
+        var none = document.createElement("p");
+        none.className = "mv-kanban-empty";
+        none.textContent = "No items";
+        colEl.appendChild(none);
+      }
+      wrap.appendChild(colEl);
+    }
+    section.appendChild(wrap);
+    return section;
+  }
+
+  // Flat labeled-value list; section grouping stays a server-renderer
+  // feature (literal data), hydration keeps the flat class-compatible form.
+  function buildProperties(data, title) {
+    var section = document.createElement("section");
+    section.className = "mv-data mv-properties";
+    appendTitle(section, title);
+    if (!data.entries.length) { appendEmpty(section, "No properties in this dataset."); return section; }
+    var dl = document.createElement("dl");
+    dl.className = "mv-props";
+    for (var i = 0; i < data.entries.length; i++) {
+      var entry = data.entries[i] && typeof data.entries[i] === "object" ? data.entries[i] : {};
+      var row = document.createElement("div");
+      row.className = "mv-prop";
+      var dt = document.createElement("dt");
+      dt.textContent = text(entry.label);
+      var dd = document.createElement("dd");
+      var value = entry.value;
+      dd.textContent = value === null || value === undefined ? "null" : typeof value === "object" ? "" : String(value);
+      row.appendChild(dt);
+      row.appendChild(dd);
+      dl.appendChild(row);
+    }
+    section.appendChild(dl);
+    return section;
+  }
+
+  function mvHydrateDataSrc(el) {
+    var kind = el.getAttribute("data-kind") || "";
+    var src = el.getAttribute("data-src") || "";
+    var title = el.getAttribute("data-title") || "";
+    var label = kind === "tasklist" ? "TaskList" : kind === "kanban" ? "Kanban" : kind === "properties" ? "Properties" : kind || "Data view";
+    var problem = null;
+    if (prefix === null) problem = "this page is outside the artifact URL namespace";
+    else if (!safeSrc(src)) problem = "src must be a relative .json path (no scheme, absolute form, traversal, query or fragment)";
+    var url = problem ? null : new URL(src, document.baseURI);
+    if (!problem && url.origin !== location.origin) problem = "the data source is cross-origin";
+    if (!problem && url.pathname !== prefix && url.pathname.indexOf(prefix + "/") !== 0) problem = "the data source escapes the artifact boundary";
+    if (problem) { fail(el, label, problem); return; }
+    var pending = cache.get(url.href);
+    if (!pending) {
+      pending = loadText(url.href).then(function (body) {
+        try { return JSON.parse(body); } catch (err) { throw new Error("the data source is not valid JSON"); }
+      });
+      cache.set(url.href, pending);
+    }
+    pending.then(function (data) {
+      var shape = shapeProblem(kind, data);
+      if (shape) { fail(el, label, shape); return; }
+      clear(el);
+      el.appendChild(kind === "properties" ? buildProperties(data, title) : kind === "kanban" ? buildKanban(data, title) : buildTaskList(data, title));
+    }, function (err) {
+      fail(el, label, err && err.message ? err.message : "the data source could not be loaded");
+    });
+  }
+
+  for (var n = 0; n < nodes.length; n++) mvHydrateDataSrc(nodes[n]);
 })();
 </script>`;
 }
@@ -515,6 +852,79 @@ body.mv-lock { overflow: hidden; }
 @media (max-width: 900px) {
   .mv-expand { opacity: 1; }
   .mv-graph.open { inset: 8px; padding: 32px 12px; }
+}
+/* --- JSON-backed data views (TaskList / Kanban / Properties) --- */
+.mv-data { margin: 1.4em 0; }
+.mv-data-title { margin: 0 0 .5em; font-size: .85em; font-weight: 650; color: var(--muted); }
+.mv-data-error {
+  margin: 1.2em 0; padding: 12px 16px; border: 1px solid #da363366; border-radius: 10px;
+  background: color-mix(in srgb, #f85149 8%, var(--bg));
+}
+.mv-data-error-title { margin: 0 0 .35em; font-weight: 650; font-size: .92em; color: #f85149; }
+.mv-data-error-list { margin: 0; padding-left: 1.2em; }
+.mv-data-error-list li { font-size: .85em; overflow-wrap: anywhere; }
+.mv-data-empty {
+  margin: .6em 0; padding: 14px 16px; border: 1px dashed var(--border); border-radius: 10px;
+  color: var(--muted); font-size: .9em;
+  background: color-mix(in srgb, var(--code-bg) 45%, transparent);
+}
+.mv-data-group + .mv-data-group { margin-top: 1.1em; }
+.mv-data-group-label {
+  margin: 0 0 .45em; font-size: .74em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted);
+}
+.mv-tasklist-items, .mv-kanban-items { list-style: none; margin: 0; padding: 0; }
+.mv-tasklist-items > li + li, .mv-kanban-items > li + li { margin-top: 8px; }
+.mv-task {
+  min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: color-mix(in srgb, var(--code-bg) 55%, transparent);
+}
+.mv-task-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mv-badge {
+  flex: none; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--badge-fg);
+  background: var(--badge-bg); color: var(--badge-fg); font-size: .72em; font-weight: 650;
+  letter-spacing: .02em; white-space: nowrap;
+}
+.mv-task-title { font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+a.mv-task-title { color: var(--link); text-decoration: none; }
+a.mv-task-title:hover { text-decoration: underline; }
+.mv-task-owner {
+  flex: none; font-size: .78em; color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.mv-task-desc { margin: .35em 0 0; font-size: .86em; overflow-wrap: anywhere; }
+.mv-task-href-note { font-size: .74em; color: var(--muted); font-style: italic; }
+.mv-kanban-columns {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px; align-items: start;
+}
+.mv-kanban-col {
+  min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: color-mix(in srgb, var(--bar-bg) 60%, transparent);
+}
+.mv-kanban-col-label { display: flex; align-items: center; gap: 8px; margin: 0 0 .5em; font-weight: 650; font-size: .88em; }
+.mv-kanban-count {
+  padding: 0 7px; border-radius: 999px; background: var(--badge-bg); color: var(--badge-fg);
+  font-size: .72em; font-weight: 650;
+}
+.mv-kanban-empty { margin: .2em 0 0; font-size: .82em; color: var(--muted); font-style: italic; }
+.mv-props { margin: .4em 0 0; }
+.mv-prop {
+  display: grid; grid-template-columns: minmax(130px, 32%) 1fr; gap: 4px 16px;
+  padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.mv-prop:last-child { border-bottom: 0; }
+.mv-prop dt { color: var(--muted); font-weight: 600; font-size: .88em; overflow-wrap: anywhere; }
+.mv-prop dd { margin: 0; font-size: .94em; overflow-wrap: anywhere; }
+.mv-data-src {
+  padding: 12px 16px; border: 1px dashed var(--border); border-radius: 10px;
+  background: color-mix(in srgb, var(--code-bg) 45%, transparent);
+}
+.mv-data-loading, .mv-data-noscript { margin: 0; color: var(--muted); font-size: .88em; }
+.mv-data a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 390px) {
+  .mv-kanban-columns { grid-template-columns: 1fr; }
+  .mv-prop { grid-template-columns: 1fr; }
 }
 `;
 }

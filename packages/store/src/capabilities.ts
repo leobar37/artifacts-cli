@@ -56,7 +56,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
       {
         format: 'mdx',
         entryFile: 'index.mdx',
-        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg, Webframe, Video, Audio)',
+        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg, Webframe, Video, Audio, TaskList, Kanban, Properties)',
       },
     ],
     components: [
@@ -158,6 +158,37 @@ export function getViewerCapabilities(): ViewerCapabilities {
         ],
         example: '<Svg shapes={[{ type: "box", x: 10, y: 30, w: 150, h: 70, label: "Entrega" }]} />',
       },
+      {
+        name: 'TaskList',
+        description: 'Read-only work-item list from a version-1 JSON snapshot (literal data or sibling src). Flat list preserving item order, or grouped when groupBy="group"',
+        props: [
+          { name: 'data', required: false, description: 'literal version-1 dataset object (exactly one of data | src)' },
+          { name: 'src', required: false, description: 'sibling .json path, e.g. "tasks.json" — document-relative, same-origin, loaded by the viewer runtime' },
+          { name: 'groupBy', required: false, description: '"group" groups items under their declared group labels (Ungrouped last); omitted keeps item order' },
+          { name: 'title', required: false, description: 'caption above the list' },
+        ],
+        example: '<TaskList src="tasks.json" groupBy="group" title="Work items" />',
+      },
+      {
+        name: 'Kanban',
+        description: 'Read-only status board from a version-1 JSON snapshot: one column per declared column, in declared order (no drag-and-drop, no status writes)',
+        props: [
+          { name: 'data', required: false, description: 'literal version-1 dataset object (exactly one of data | src)' },
+          { name: 'src', required: false, description: 'sibling .json path, e.g. "tasks.json" — document-relative, same-origin, loaded by the viewer runtime' },
+          { name: 'title', required: false, description: 'caption above the board' },
+        ],
+        example: '<Kanban src="tasks.json" title="Status board" />',
+      },
+      {
+        name: 'Properties',
+        description: 'Read-only list of labeled scalar values (string/number/boolean/null) from a version-1 JSON snapshot, optionally sectioned by entry group',
+        props: [
+          { name: 'data', required: false, description: 'literal version-1 dataset object (exactly one of data | src)' },
+          { name: 'src', required: false, description: 'sibling .json path, e.g. "profile.json" — document-relative, same-origin, loaded by the viewer runtime' },
+          { name: 'title', required: false, description: 'caption above the property list' },
+        ],
+        example: '<Properties src="profile.json" title="Execution profile" />',
+      },
     ],
     features: [
       'GFM: tables, task lists, strikethrough, autolinks',
@@ -174,6 +205,12 @@ export function getViewerCapabilities(): ViewerCapabilities {
       'versioned store: artifact_create/artifact_update create v001, v002...',
       'folder standard: sibling files are first-class — reference them by relative path (asset.png, notes.md); .md/.mdx siblings render as viewer sub-routes, .html siblings are browsable or embeddable via <Webframe>',
       'assets: attach with the artifact_asset tool (bytes in the store, served at /artifacts/<slug>/<name>); symlinked folders also work',
+      'data views: TaskList/Kanban/Properties take a version-1 JSON snapshot via literal data={...} (server-rendered) or sibling src="tasks.json" (document-relative, same-origin, fetched by the viewer at render time)',
+      'data view limits: 1 MiB UTF-8 JSON per src, 1,000 items, 50 columns, 100 groups, 100 property entries, 256 chars per id/title/label, 4,096 per description/value; over-limit data fails visibly instead of being silently truncated',
+      'data view failures are visible per component (role="alert" error card naming the component and the reason): unsupported version, data+src together, duplicate ids, unknown column/group references, malformed or oversized values — never a crash or a blank section',
+      'data views are snapshots, not live: generatedAt/sourceLabel are display-only metadata; nothing re-renders on its own and there is no connection to plan files or external systems',
+      'data view links: item href accepts only document-relative safe paths or #fragments; src resolves against the current MDX document, never against the JSON file',
+      'data views are read-only: no write-back, no drag-and-drop, no automatic status transitions',
     ],
     usageGuidance: usageGuidance(),
     mermaid: {
@@ -192,6 +229,8 @@ function usageGuidance(): string[] {
     'Diagram only for real structure (3+ interacting steps/actors, architecture, state transitions) — one per document max.',
     'Chart only with REAL data from the task/repo/conversation; never invent numbers to justify a chart.',
     'Linear steps -> numbered list; comparison -> table; anything explainable in a sentence -> prose.',
+    'Data views (TaskList/Kanban/Properties): explicitly select safe fields for the JSON snapshot — exclude credentials, tokens and secrets; nothing is auto-redacted.',
+    'Never imply a data view is connected to a live plan or system: it is a frozen snapshot, and generatedAt/sourceLabel are display-only metadata.',
   ];
 }
 

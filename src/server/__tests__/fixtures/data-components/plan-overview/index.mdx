@@ -1,0 +1,22 @@
+# Plan overview
+
+**Goal:** ship generic JSON-backed TaskList, Kanban and Properties views as
+read-only, snapshot-driven MDX components — generic building blocks for any
+artifact, not a plan-specific engine.
+
+This document is itself an example: the prose above stays regular Markdown,
+while the two views below read sibling JSON files that live next to this
+`index.mdx`. Both are snapshots with display-only metadata (`generatedAt`,
+`sourceLabel`) — there is no live plan connection and nothing is writable.
+
+<TaskList src="tasks.json" groupBy="group" title="Work items" />
+
+Grouping follows `groupBy="group"`: declared group order first, an
+"Ungrouped" section last. Remove the `groupBy` prop to keep plain dataset
+order instead.
+
+<Properties src="profile.json" title="Execution profile" />
+
+Properties render labeled scalar values (string, number, boolean, null),
+optionally sectioned by the entry `group` field. Producers must explicitly
+select safe fields — no credential is auto-redacted.

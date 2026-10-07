@@ -16,6 +16,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  renderDataError,
+  renderDataSrcPlaceholder,
+  renderKanban,
+  renderProperties,
+  renderTaskList,
+  validateDataTitle,
+  type DataViewKind,
+} from "./data-components.js";
+import { isSafeSrc } from "./data-contracts.js";
 
 /**
  * Built-in MDX component runtime for the markdown viewer.
@@ -438,6 +448,45 @@ function renderAudio(p: JsxProps): string | null {
   return `<figure class="mv-media mv-media--audio"><audio class="mv-audio" ${attrs}></audio>${caption}</figure>`;
 }
 
+const DATA_VIEW_KIND: Record<string, DataViewKind> = {
+  TaskList: "tasklist",
+  Kanban: "kanban",
+  Properties: "properties",
+};
+
+/**
+ * JSON-backed read-only views: props are exactly one of literal `data`
+ * (validated and rendered server-side here) or a literal safe sibling
+ * `src` (declarative placeholder the viewer runtime hydrates later — no
+ * fetch, no repository reads). Both/neither, an unsafe `src`, or a bad
+ * title produce a visible component-level error instead of the null
+ * placeholder; non-literal props never reach this path.
+ */
+function renderDataView(tag: string, p: JsxProps): string {
+  const kind = DATA_VIEW_KIND[tag];
+  const hasData = p.data !== undefined;
+  const hasSrc = p.src !== undefined;
+  if (hasData && hasSrc) {
+    return renderDataError(tag, ["provide exactly one of `data` or `src`, not both"]);
+  }
+  if (!hasData && !hasSrc) {
+    return renderDataError(tag, ["provide exactly one of `data` or `src`"]);
+  }
+  const title = validateDataTitle(p.title);
+  if (!title.ok) return renderDataError(tag, [title.error]);
+  if (hasData) {
+    if (kind === "tasklist") return renderTaskList(p.data, { title: title.title, groupBy: p.groupBy });
+    if (kind === "kanban") return renderKanban(p.data, { title: title.title });
+    return renderProperties(p.data, { title: title.title });
+  }
+  if (typeof p.src !== "string" || !isSafeSrc(p.src)) {
+    return renderDataError(tag, [
+      "src must be a relative .json path without scheme, absolute form, query, fragment, backslash, control characters or traversal",
+    ]);
+  }
+  return renderDataSrcPlaceholder(kind, p.src, title.title);
+}
+
 /**
  * Render a built-in component. `childrenHtml` arrives already rendered from
  * markdown. Returns null when the component is unknown or props violate the
@@ -463,6 +512,10 @@ export function renderMdxComponent(tag: string, props: JsxProps, childrenHtml: s
       return renderSection(props, childrenHtml);
     case "Svg":
       return renderSvg(props);
+    case "TaskList":
+    case "Kanban":
+    case "Properties":
+      return renderDataView(tag, props);
     default:
       return null;
   }

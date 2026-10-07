@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-06T12:00:00Z",
+  "sourceLabel": "Illustrative release snapshot",
+  "columns": [
+    { "id": "pending", "label": "Pending" },
+    { "id": "review", "label": "In review" },
+    { "id": "done", "label": "Done" }
+  ],
+  "groups": [
+    { "id": "phase-1", "label": "First phase" },
+    { "id": "phase-2", "label": "Second phase" }
+  ],
+  "items": [
+    {
+      "id": "R-1",
+      "title": "Draft release notes",
+      "status": "pending",
+      "group": "phase-1",
+      "owner": "writer",
+      "description": "Summarize the shipped changes for users."
+    },
+    {
+      "id": "R-2",
+      "title": "Announce the launch",
+      "status": "pending",
+      "group": "phase-2",
+      "owner": "comms"
+    },
+    {
+      "id": "R-3",
+      "title": "Screenshot pass",
+      "status": "review",
+      "group": "phase-1",
+      "owner": "designer",
+      "description": "Check desktop and 390px layouts in both themes."
+    },
+    {
+      "id": "R-4",
+      "title": "Tag the version",
+      "status": "done",
+      "group": "phase-2",
+      "owner": "release",
+      "href": "#tag-checklist"
+    }
+  ]
+}

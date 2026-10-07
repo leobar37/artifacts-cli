@@ -243,3 +243,102 @@ describe('renderMdxComponent', () => {
     expect(svg).toContain('class="mv-expand"');
   });
 });
+
+describe('renderMdxComponent data views', () => {
+  const TASKS = {
+    version: 1,
+    columns: [{ id: 'pending', label: 'Pending' }],
+    groups: [{ id: 'g1', label: 'Phase 1' }],
+    items: [
+      { id: 'T-1', title: 'Ship <it>', status: 'pending', group: 'g1' },
+      { id: 'T-2', title: 'Rest', status: 'pending' },
+    ],
+  };
+
+  it('TaskList renders inline data server-side with escaping', () => {
+    const html = renderMdxComponent('TaskList', { data: TASKS, title: 'Work items' }, '');
+    expect(html).toContain('mv-tasklist');
+    expect(html).toContain('mv-data-title">Work items');
+    expect(html).toContain('mv-badge">pending');
+    expect(html).toContain('Ship &lt;it&gt;');
+    expect(html).not.toContain('<it>');
+  });
+
+  it('TaskList groups only with groupBy="group"', () => {
+    expect(renderMdxComponent('TaskList', { data: TASKS, groupBy: 'group' }, '')).toContain(
+      'mv-data-group-label">Phase 1',
+    );
+    expect(renderMdxComponent('TaskList', { data: TASKS }, '')).not.toContain('mv-data-group-label');
+    expect(
+      renderMdxComponent('TaskList', { data: TASKS, groupBy: 'status' }, ''),
+    ).not.toContain('mv-data-group-label');
+  });
+
+  it('Kanban renders declared columns from inline data', () => {
+    const html = renderMdxComponent('Kanban', { data: TASKS }, '');
+    expect(html).toContain('mv-kanban-col');
+    expect(html).toContain('mv-kanban-col-label">Pending');
+  });
+
+  it('Properties renders entries from inline data', () => {
+    const html = renderMdxComponent(
+      'Properties',
+      { data: { version: 1, entries: [{ label: 'Worker', value: 'GLM' }] }, title: 'Profile' },
+      '',
+    );
+    expect(html).toContain('mv-props');
+    expect(html).toContain('<dt>Worker</dt><dd>GLM</dd>');
+    expect(html).toContain('mv-data-title">Profile');
+  });
+
+  it('src emits a hydratable placeholder and never fetches', () => {
+    const html = renderMdxComponent('TaskList', { src: 'tasks.json', title: 'Work items' }, '');
+    expect(html).toContain('class="mv-data mv-data-src"');
+    expect(html).toContain('data-kind="tasklist"');
+    expect(html).toContain('data-src="tasks.json"');
+    expect(html).toContain('data-title="Work items"');
+    expect(html).toContain('<noscript>');
+    expect(html).not.toContain('mv-tasklist"');
+  });
+
+  it('data + src together is a visible error, not a placeholder', () => {
+    const html = renderMdxComponent('TaskList', { data: TASKS, src: 'tasks.json' }, '');
+    expect(html).toContain('mv-data-error');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('not both');
+    expect(html).not.toContain('mv-data-src');
+  });
+
+  it('neither data nor src is a visible error', () => {
+    const html = renderMdxComponent('Kanban', { title: 'Board' }, '');
+    expect(html).toContain('mv-data-error');
+    expect(html).toContain('exactly one of');
+  });
+
+  it('unsafe or non-string src values are visible errors', () => {
+    expect(renderMdxComponent('TaskList', { src: 'https://evil.com/x.json' }, '')).toContain(
+      'mv-data-error',
+    );
+    expect(renderMdxComponent('TaskList', { src: '../up.json' }, '')).toContain('mv-data-error');
+    expect(renderMdxComponent('TaskList', { src: '/abs.json' }, '')).toContain('mv-data-error');
+    expect(renderMdxComponent('TaskList', { src: 5 }, '')).toContain('mv-data-error');
+  });
+
+  it('invalid datasets and titles render component-level errors', () => {
+    expect(renderMdxComponent('Properties', { data: { version: 2, entries: [] } }, '')).toContain(
+      'unsupported dataset version',
+    );
+    expect(
+      renderMdxComponent('TaskList', { data: TASKS, title: 'x'.repeat(257) }, ''),
+    ).toContain('mv-data-error');
+  });
+
+  it('legacy components are unchanged alongside the new cases', () => {
+    expect(renderMdxComponent('Chart', { data: [{ name: 'Q1', v: 1 }] }, '')).toContain(
+      'recharts-bar',
+    );
+    expect(renderMdxComponent('Callout', { type: 'info' }, '<p>x</p>')).toContain('mv-callout--info');
+    expect(renderMdxComponent('Stat', { value: '1', label: 'L' }, '')).toContain('mv-stat');
+    expect(renderMdxComponent('Nope', {}, '')).toBeNull();
+  });
+});

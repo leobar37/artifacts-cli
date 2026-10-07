@@ -321,6 +321,53 @@ describe("broker data plane", () => {
     const b = await fetch(`${brokerUrl}/r/remote-b/p/${SHARED_PROJECT}/artifacts/demo/index.html`);
     expect(await b.text()).toContain("AGENT-B");
   }, 30000);
+
+  it("serves an mdx data-view artifact and its sibling json through the proxy", async () => {
+    // Same-slug board seeded on both agents with different datasets: the
+    // shared project/slug namespace must stay isolated per remote.
+    const boardMdx = "# Release board\n\n<Kanban src=\"tasks.json\" title=\"Release board\" />\n";
+    const tasksA = {
+      version: 1,
+      generatedAt: "2026-10-06T12:00:00Z",
+      sourceLabel: "agent A snapshot",
+      columns: [{ id: "pending", label: "Pending" }, { id: "done", label: "Done" }],
+      items: [{ id: "A-1", title: "Agent A item", status: "pending" }],
+    };
+    const tasksB = {
+      version: 1,
+      generatedAt: "2026-10-06T12:00:00Z",
+      sourceLabel: "agent B snapshot",
+      columns: [{ id: "pending", label: "Pending" }, { id: "done", label: "Done" }],
+      items: [{ id: "B-1", title: "Agent B item", status: "done" }],
+    };
+    for (const [dir, tasks] of [[dirA, tasksA], [dirB, tasksB]] as const) {
+      mkdirSync(join(dir, "docs", "artifacts", "board"), { recursive: true });
+      writeFileSync(join(dir, "docs", "artifacts", "board", "index.mdx"), boardMdx);
+      writeFileSync(join(dir, "docs", "artifacts", "board", "tasks.json"), JSON.stringify(tasks, null, 2));
+    }
+
+    // The viewer page ships the hydratable placeholder + boot script.
+    const page = await fetch(`${brokerUrl}/r/remote-a/p/${SHARED_PROJECT}/artifacts/board/index.mdx`);
+    expect(page.status).toBe(200);
+    expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const body = await page.text();
+    expect(body).toContain('class="mv-data mv-data-src"');
+    expect(body).toContain('data-kind="kanban"');
+    expect(body).toContain('data-src="tasks.json"');
+    expect(body).toContain('data-title="Release board"');
+    expect(body).toContain("mvHydrateDataSrc");
+
+    // The sibling source the placeholder will fetch, same document directory.
+    const json = await fetch(`${brokerUrl}/r/remote-a/p/${SHARED_PROJECT}/artifacts/board/tasks.json`);
+    expect(json.status).toBe(200);
+    expect(json.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(await json.json()).toEqual(tasksA);
+
+    // Same slug on the other remote keeps its own dataset.
+    const jsonB = await fetch(`${brokerUrl}/r/remote-b/p/${SHARED_PROJECT}/artifacts/board/tasks.json`);
+    expect(jsonB.status).toBe(200);
+    expect(await jsonB.json()).toEqual(tasksB);
+  }, 15000);
 });
 
 describe("broker offline lease", () => {

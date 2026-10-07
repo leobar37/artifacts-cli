@@ -134,6 +134,30 @@ omp plugin link ./packages/pi-extension
   real; props must be literals, so agents inline their data. Module
   statements and `{/* comments */}` are hidden; unknown components keep
   visible placeholders.
+
+  ### Authoring JSON data views (TaskList / Kanban / Properties)
+
+  Three read-only components render a **version-1 JSON snapshot**:
+  `TaskList` (work items, optional `groupBy="group"`), `Kanban` (columns in
+  declared order) and `Properties` (labeled scalar values, optional
+  sections). Feed each with **exactly one** of a literal `data={...}`
+  object (server-rendered) or a sibling `src="tasks.json"` (same-origin,
+  document-relative, fetched by the viewer at render time):
+
+  ```mdx
+  <TaskList src="tasks.json" groupBy="group" title="Work items" />
+  <Kanban data={{ version: 1, columns: [{ id: "done", label: "Done" }], items: [] }} title="Status board" />
+  <Properties src="profile.json" title="Execution profile" />
+  ```
+
+  Limits per source: 1 MiB JSON, 1,000 items, 50 columns, 100 groups,
+  100 property entries — over-limit or malformed data renders a visible
+  per-component error, never a crash or silent truncation. The views are
+  **snapshots, not live** (`generatedAt`/`sourceLabel` are display-only
+  metadata) and **read-only**: no write-back, no drag-and-drop. Item
+  links accept document-relative paths or `#fragments` only, and producers
+  must explicitly select safe fields — credentials are never
+  auto-redacted. See the live guide (`artifact guide`) for full examples.
 - **Sections index** — 3+ headings get anchor ids and a Secciones sidebar
   (sticky + scroll-spy, stacked on mobile); short docs keep the
   single-column look.

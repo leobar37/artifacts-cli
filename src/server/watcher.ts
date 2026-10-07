@@ -61,9 +61,13 @@ export function createWatcher(): WatcherHandle {
     });
     // Directory watches (not `**/index.html` globs: the chokidar v5 fork
     // does not reliably deliver events for glob paths added after boot).
-    // Non-HTML events are filtered below.
+    // Non-HTML events are filtered below: entry documents (.md/.mdx) and
+    // sibling JSON sources refresh the owning artifact like index.html;
+    // deletions flow through `unlink` (JSON removal flips hydrated views to
+    // a visible error state; HTML keeps its previous no-unlink behavior).
     const relevant = (filePath: string): boolean =>
-      filePath.endsWith(`${path.sep}index.html`);
+      filePath.endsWith(`${path.sep}index.html`) || /\.(md|mdx|json)$/.test(filePath);
+    const relevantOnUnlink = (filePath: string): boolean => /\.(md|mdx|json)$/.test(filePath);
     watcher
       .on('add', (filePath: string) => {
         if (!relevant(filePath)) return;
@@ -73,6 +77,11 @@ export function createWatcher(): WatcherHandle {
       .on('change', (filePath: string) => {
         if (!relevant(filePath)) return;
         log.info(`change detected: ${filePath}`);
+        emit(filePath);
+      })
+      .on('unlink', (filePath: string) => {
+        if (!relevantOnUnlink(filePath)) return;
+        log.info(`file removed: ${filePath}`);
         emit(filePath);
       })
       .on('error', (err: unknown) => {

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-06T12:00:00Z",
+  "sourceLabel": "Plan overview snapshot",
+  "columns": [
+    { "id": "done", "label": "Done" },
+    { "id": "pending", "label": "Pending" }
+  ],
+  "groups": [
+    { "id": "discovery", "label": "Discovery" },
+    { "id": "build", "label": "Build" }
+  ],
+  "items": [
+    {
+      "id": "T-1",
+      "title": "Interview stakeholders",
+      "status": "done",
+      "group": "discovery",
+      "owner": "coordinator"
+    },
+    {
+      "id": "T-2",
+      "title": "Write requirements",
+      "status": "done",
+      "group": "discovery",
+      "description": "Public behavior and data contract, FR-001..FR-006."
+    },
+    {
+      "id": "T-3",
+      "title": "Implement fixtures",
+      "status": "pending",
+      "group": "build",
+      "owner": "worker"
+    },
+    {
+      "id": "T-4",
+      "title": "File follow-up tickets",
+      "status": "pending"
+    }
+  ]
+}

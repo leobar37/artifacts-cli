@@ -228,3 +228,80 @@ describe('renderMarkdownViewer sections index', () => {
     expect(page).toContain('<a href="#dup-2">Dos</a>');
   });
 });
+
+describe('renderMarkdownBody data views', () => {
+  it('renders a TaskList with inline literal data, grouped and escaped', () => {
+    const mdx = [
+      '<TaskList data={{ version: 1, columns: [{ id: \'pending\', label: \'Pending\' }], groups: [{ id: \'g1\', label: \'Phase 1\' }], items: [',
+      "  { id: 'T-1', title: 'Prepare <fixtures>', status: 'pending', group: 'g1' },",
+      "  { id: 'T-2', title: 'Relax', status: 'pending' },",
+      '] }} groupBy=\'group\' title="Work items" />',
+    ].join('\n');
+    const html = renderMarkdownBody(mdx, 'mdx');
+    expect(html).toContain('mv-tasklist');
+    expect(html).toContain('mv-data-title">Work items');
+    expect(html).toContain('mv-data-group-label">Phase 1');
+    expect(html).toContain('Ungrouped');
+    expect(html).toContain('Prepare &lt;fixtures&gt;');
+    expect(html).not.toContain('<fixtures>');
+  });
+
+  it('renders Kanban and Properties from inline data', () => {
+    const mdx = [
+      '<Kanban data={{ version: 1, columns: [{ id: \'done\', label: \'Done\' }], items: [{ id: \'A\', title: \'Shipped\', status: \'done\' }] }} />',
+      '',
+      "<Properties data={{ version: 1, entries: [{ label: 'Worker', value: 'GLM 5.3 Flash' }] }} />",
+    ].join('\n\n');
+    const html = renderMarkdownBody(mdx, 'mdx');
+    expect(html).toContain('mv-kanban-col-label">Done');
+    expect(html).toContain('Shipped');
+    expect(html).toContain('<dt>Worker</dt><dd>GLM 5.3 Flash</dd>');
+  });
+
+  it('renders the src placeholder without fetching or reading files', () => {
+    const html = renderMarkdownBody('<TaskList src="tasks.json" title="Board" />\n', 'mdx');
+    expect(html).toContain('class="mv-data mv-data-src"');
+    expect(html).toContain('data-kind="tasklist"');
+    expect(html).toContain('data-src="tasks.json"');
+    expect(html).toContain('data-title="Board"');
+    expect(html).toContain('<noscript>');
+  });
+
+  it('surfaces malformed props as component-level errors in the body', () => {
+    const html = renderMarkdownBody(
+      '<Kanban data={{ version: 1, columns: [] }} src="tasks.json" />\n',
+      'mdx',
+    );
+    expect(html).toContain('mv-data-error');
+    expect(html).toContain('role="alert"');
+  });
+
+  it('executes no code from data: hostile markup stays escaped', () => {
+    const mdx =
+      "<Properties data={{ version: 1, entries: [{ label: 'X', value: '<script>alert(1)</script>' }] }} />\n";
+    const html = renderMarkdownBody(mdx, 'mdx');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html.toLowerCase()).not.toContain('<script>');
+  });
+});
+
+describe('renderMarkdownViewer data view styles', () => {
+  const mdx = '<TaskList src="tasks.json" />\n';
+
+  it('ships theme-aware CSS for the data view classes', () => {
+    const dark = renderMarkdownViewer(mdx, { slug: 'd', format: 'mdx' });
+    expect(dark).toContain('mv-data-src"');
+    for (const cls of ['.mv-data-error', '.mv-data-empty', '.mv-task', '.mv-kanban-columns', '.mv-prop']) {
+      expect(dark).toContain(cls);
+    }
+    expect(dark).toContain('.mv-data a:focus-visible');
+    expect(dark).toContain('@media (max-width: 390px)');
+  });
+
+  it('inlines the same data view styles in the light theme', () => {
+    const light = renderMarkdownViewer(mdx, { slug: 'd', format: 'mdx', theme: 'light' });
+    expect(light).toContain('data-theme="light"');
+    expect(light).toContain('.mv-kanban-columns');
+    expect(light).toContain('.mv-data-error');
+  });
+});

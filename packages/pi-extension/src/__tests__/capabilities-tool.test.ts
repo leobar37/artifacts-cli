@@ -71,9 +71,30 @@ describe("artifact_capabilities tool", () => {
     const result = await tool!.execute("t1", {}, undefined, undefined, { cwd: work });
     const details = CapabilitiesDetails.parse(result.details);
     expect(details.formats.map((f) => f.format)).toEqual(["html", "md", "mdx"]);
-    expect(details.components.map((c) => c.name).sort()).toEqual(["Callout", "Chart", "Section", "Stat", "Stats", "Svg", "Webframe"]);
+    expect(details.components.map((c) => c.name).sort()).toEqual([
+      "Audio", "Callout", "Chart", "Kanban", "Properties", "Section", "Stat", "Stats", "Svg", "TaskList", "Video", "Webframe",
+    ]);
     expect(details.mermaid.supported).toBe(true);
     expect(result.content[0].text).toContain("components:");
+  });
+
+  it("exposes the JSON-backed data views with features and producer guidance", async () => {
+    const tool = tools.get("artifact_capabilities")!;
+    const result = await tool.execute("t1b", {}, undefined, undefined, { cwd: work });
+    const details = CapabilitiesDetails.parse(result.details);
+    const byName = Object.fromEntries(details.components.map((c) => [c.name, c]));
+    for (const name of ["TaskList", "Kanban", "Properties"]) {
+      expect(byName[name], `${name} exposed to agents`).toBeDefined();
+      const props = byName[name]!.props.map((p) => p.name);
+      expect(props).toContain("data");
+      expect(props).toContain("src");
+    }
+    expect(byName["TaskList"]!.props.map((p) => p.name)).toContain("groupBy");
+    const payload = JSON.stringify(result.details);
+    expect(payload).toContain("read-only");
+    expect(payload).toContain("1 MiB");
+    expect(payload).toContain("credentials");
+    expect(payload).toContain("display-only");
   });
 
   it("resolves the live guide url when a daemon lockfile exists", async () => {
