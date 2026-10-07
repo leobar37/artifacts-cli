@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,8 +29,22 @@ function watchProject(id: string): void {
   watcher.watch(id, join(base, id));
 }
 
+// Hand-rolled polling (no vi.waitFor): this file also runs under `bun test`
+// via the repo's `bun run test` script, where the vitest shim's waitFor does
+// not actually wait. Real timers throughout (live chokidar delivery).
 async function waitFor(predicate: () => boolean, label: string, timeoutMs = 5000): Promise<void> {
-  await vi.waitFor(() => expect(predicate(), label).toBe(true), { timeout: timeoutMs, interval: 50 });
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    let ok = false;
+    try {
+      ok = predicate();
+    } catch {
+      ok = false;
+    }
+    if (ok) return;
+    if (Date.now() >= deadline) throw new Error(`timeout waiting for: ${label}`);
+    await wait(50);
+  }
 }
 
 // Real timers required: this suite exercises live chokidar delivery against
