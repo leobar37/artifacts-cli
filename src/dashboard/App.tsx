@@ -15,6 +15,8 @@ import { Overview } from "./components/Overview.js";
 import { BrokerOverview } from "./components/BrokerOverview.js";
 import { RemoteSwitcher } from "./components/RemoteSwitcher.js";
 import { ProjectSwitcher } from "./components/ProjectSwitcher.js";
+import { SearchInput } from "./components/SearchInput.js";
+import { filterArtifacts, matchesText } from "./lib/artifact-search.js";
 import { ChevronRight, ChevronLeft, X, AlertCircle, FolderOpen, Server } from "lucide-react";
 
 type ArtifactType = "generic" | "study" | "wireframe";
@@ -141,6 +143,9 @@ function UnknownRemote({ remoteId, remotes }: { remoteId: string | null; remotes
 }
 
 function RemoteDetail({ remote, remotes, projects }: { remote: RemoteSummary; remotes: RemoteSummary[]; projects: { projectId: string; name: string }[] }) {
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length > 0;
+  const visible = searching ? projects.filter((p) => matchesText(p.name, query)) : projects;
   return (
     <BrokerShell remote={remote} remotes={remotes}>
       <main className="mx-auto max-w-4xl px-4 py-6">
@@ -156,11 +161,16 @@ function RemoteDetail({ remote, remotes, projects }: { remote: RemoteSummary; re
             {projects.length} project{projects.length !== 1 ? 's' : ''} · {remote.artifactCount} artifact{remote.artifactCount !== 1 ? 's' : ''}
           </span>
         </div>
+        <div className="mb-3">
+          <SearchInput value={query} onChange={setQuery} placeholder="Search projects…" ariaLabel="Search projects" />
+        </div>
         {projects.length === 0 ? (
           <p className="text-sm text-text-faint">This remote has no projects yet.</p>
+        ) : searching && visible.length === 0 ? (
+          <p className="text-sm text-text-muted">No projects match “{query.trim()}”.</p>
         ) : (
           <div className="space-y-2">
-            {projects.map((p) => (
+            {visible.map((p) => (
               <a
                 key={p.projectId}
                 href={remoteProjectUrl(remote.remoteId, p.projectId)}
@@ -209,6 +219,9 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
   const [selectedType, setSelectedType] = useState<ArtifactType | "all">("all");
   const { project, artifacts, total, loading, error, refetch } = useBrokerProject(remote.remoteId, projectId, selectedType === 'all' ? undefined : selectedType);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const allListed = wireList(artifacts);
+  const visible = filterArtifacts(allListed, query);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewerMaximized, setViewerMaximized] = useState(false);
 
@@ -289,11 +302,20 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
               <p className="text-sm text-text-muted">Loading artifacts...</p>
             </div>
           ) : (
-            <ArtifactList
-              artifacts={selectedArtifact ? [selectedArtifact, ...wireList(artifacts).filter((a) => a.slug !== selectedArtifact.slug)] : wireList(artifacts)}
-              selectedSlug={selectedArtifact?.slug || null}
-              onSelect={(a) => setSelectedSlug(a?.slug ?? null)}
-            />
+            <div className="flex h-full flex-col">
+              <div className="p-3 pb-1">
+                <SearchInput value={query} onChange={setQuery} placeholder="Search artifacts…" ariaLabel="Search artifacts" />
+              </div>
+              <div className="min-h-0 flex-1">
+                <ArtifactList
+                  artifacts={visible}
+                  selectedSlug={selectedArtifact?.slug || null}
+                  onSelect={(a) => setSelectedSlug(a?.slug ?? null)}
+                  query={query}
+                  totalCount={allListed.length}
+                />
+              </div>
+            </div>
           )}
         </aside>
 
@@ -404,6 +426,8 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
       remoteId={remote.remoteId}
       remotes={remotes}
       onNavigateProject={(id) => { window.location.href = remoteProjectUrl(remote.remoteId, id); }}
+      backHref="/"
+      backLabel="All remotes"
     />
   );
 }
@@ -417,6 +441,8 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
   const { name: projectName } = useProject();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewerMaximized, setViewerMaximized] = useState(false);
+  const [query, setQuery] = useState("");
+  const visible = filterArtifacts(artifacts, query);
 
   const handleSelectArtifact = (artifact: Artifact | null) => {
     selectArtifact(artifact);
@@ -489,11 +515,20 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
               </p>
             </div>
           ) : (
-            <ArtifactList
-              artifacts={artifacts}
-              selectedSlug={selectedArtifact?.slug || null}
-              onSelect={handleSelectArtifact}
-            />
+            <div className="flex h-full flex-col">
+              <div className="p-3 pb-1">
+                <SearchInput value={query} onChange={setQuery} placeholder="Search artifacts…" ariaLabel="Search artifacts" />
+              </div>
+              <div className="min-h-0 flex-1">
+                <ArtifactList
+                  artifacts={visible}
+                  selectedSlug={selectedArtifact?.slug || null}
+                  onSelect={handleSelectArtifact}
+                  query={query}
+                  totalCount={artifacts.length}
+                />
+              </div>
+            </div>
           )}
         </aside>
 

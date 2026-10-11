@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { AlertCircle, FolderOpen, Package, Server } from 'lucide-react';
 import { useBrokerOverview } from '../hooks/useRemotes.js';
 import type { Artifact, ArtifactWire } from '../../types/artifact.js';
 import { ArtifactCard } from './ArtifactCard.js';
+import { SearchInput } from './SearchInput.js';
+import { filterArtifacts, matchesText } from '../lib/artifact-search.js';
 import { remoteProjectUrl, remoteUrl } from '../lib/project.js';
-
 function wireToLocal(a: ArtifactWire): Artifact {
   return {
     slug: a.slug,
@@ -20,9 +22,26 @@ function wireToLocal(a: ArtifactWire): Artifact {
 
 /** Broker root: `remote → project → artifact` with stored offline catalogs. */
 export function BrokerOverview() {
+  const [query, setQuery] = useState("");
   const { remotes, loading, error, refetch } = useBrokerOverview();
   const total = remotes.reduce((n, g) => n + g.projects.reduce((m, p) => m + p.totalCount, 0), 0);
-
+  const searching = query.trim().length > 0;
+  // One query searches servers, projects and artifacts; empty levels collapse.
+  // A name match on a server/project reveals its full contents unfiltered.
+  const visible = remotes
+    .map((g) => {
+      const remoteMatch = matchesText(g.remote.name, query);
+      const projects = g.projects
+        .map((p) => {
+          const projectMatch = matchesText(p.project.name, query);
+          if (remoteMatch || projectMatch) return p;
+          return { ...p, artifacts: filterArtifacts(p.artifacts, query) };
+        })
+        .filter((p) => remoteMatch || matchesText(p.project.name, query) || p.artifacts.length > 0);
+      return { ...g, remoteMatch, projects };
+    })
+    .filter((g) => !searching || g.remoteMatch || g.projects.length > 0);
+  const visibleTotal = visible.reduce((n, g) => n + g.projects.reduce((m, p) => m + p.artifacts.length, 0), 0);
   if (loading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center p-8 bg-bg">
@@ -69,17 +88,25 @@ export function BrokerOverview() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-accent">
             <Package className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-sm font-medium text-text-primary">All remotes</h1>
             <p className="text-xs text-text-muted">
-              {total} artifact{total !== 1 ? 's' : ''} across {remotes.length} remote{remotes.length !== 1 ? 's' : ''}
+              {searching && visibleTotal !== total
+                ? `${visibleTotal} of ${total} artifacts across ${visible.length} remote${visible.length !== 1 ? 's' : ''}`
+                : `${total} artifact${total !== 1 ? 's' : ''} across ${remotes.length} remote${remotes.length !== 1 ? 's' : ''}`}
             </p>
+          </div>
+          <div className="ml-auto w-full sm:w-64">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search servers, projects…" ariaLabel="Search servers and projects" />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6 space-y-8">
-        {remotes.map(({ remote, projects }) => (
+        {searching && visible.length === 0 ? (
+          <p className="px-1 text-sm text-text-muted">No servers, projects or artifacts match “{query.trim()}”.</p>
+        ) : (
+          visible.map(({ remote, projects }) => (
           <section key={remote.remoteId}>
             <a href={remoteUrl(remote.remoteId)} className="group mb-3 flex items-center gap-2 px-1">
               <Server className="h-4 w-4 text-text-faint group-hover:text-text-secondary" />
@@ -131,7 +158,8 @@ export function BrokerOverview() {
               </div>
             )}
           </section>
-        ))}
+          ))
+        )}
       </main>
     </div>
   );

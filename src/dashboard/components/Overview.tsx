@@ -1,11 +1,20 @@
+import { useState } from 'react';
 import { Package, AlertCircle, FolderOpen } from 'lucide-react';
 import { useOverview } from '../hooks/useOverview.js';
 import { ArtifactCard } from './ArtifactCard.js';
+import { SearchInput } from './SearchInput.js';
+import { filterArtifacts } from '../lib/artifact-search.js';
 
-/** All artifacts of every registered project, grouped by project. Lives at `/`. */
-export function Overview() {
-  const { groups, loading, error, refetch } = useOverview();
-  const total = groups.reduce((sum, g) => sum + g.totalCount, 0);
+ /** All artifacts of every registered project, grouped by project. Lives at `/`. */
+ export function Overview() {
+  const [query, setQuery] = useState("");
+   const { groups, loading, error, refetch } = useOverview();
+   const total = groups.reduce((sum, g) => sum + g.totalCount, 0);
+  const searching = query.trim().length > 0;
+  const visibleGroups = groups
+    .map((g) => ({ ...g, artifacts: filterArtifacts(g.artifacts, query) }))
+    .filter((g) => !searching || g.artifacts.length > 0);
+  const visibleTotal = visibleGroups.reduce((sum, g) => sum + g.artifacts.length, 0);
 
   if (loading) {
     return (
@@ -52,21 +61,29 @@ export function Overview() {
   return (
     <div className="min-h-screen bg-bg font-sans">
       <header className="flex flex-col border-b border-line bg-panel sticky top-0 z-20">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-accent">
             <Package className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-sm font-medium text-text-primary">All artifacts</h1>
             <p className="text-xs text-text-muted">
-              {total} artifact{total !== 1 ? 's' : ''} across {groups.length} project{groups.length !== 1 ? 's' : ''}
+              {searching && visibleTotal !== total
+                ? `${visibleTotal} of ${total} artifacts across ${visibleGroups.length} project${visibleGroups.length !== 1 ? 's' : ''}`
+                : `${total} artifact${total !== 1 ? 's' : ''} across ${groups.length} project${groups.length !== 1 ? 's' : ''}`}
             </p>
+          </div>
+          <div className="ml-auto w-full sm:w-64">
+            <SearchInput value={query} onChange={setQuery} placeholder="Search all artifacts…" ariaLabel="Search all artifacts" />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6 space-y-8">
-        {groups.map(({ project, artifacts }) => (
+        {searching && visibleGroups.length === 0 ? (
+          <p className="px-1 text-sm text-text-muted">No artifacts match “{query.trim()}”.</p>
+        ) : (
+          visibleGroups.map(({ project, artifacts }) => (
           <section key={project.projectId}>
             <a
               href={`/p/${project.projectId}/`}
@@ -101,7 +118,8 @@ export function Overview() {
               </div>
             )}
           </section>
-        ))}
+          ))
+        )}
       </main>
     </div>
   );

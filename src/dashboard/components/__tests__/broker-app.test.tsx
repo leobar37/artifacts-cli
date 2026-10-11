@@ -94,6 +94,59 @@ describe("BrokerOverview", () => {
     const anchor = screen.getByText("shop").closest("a");
     expect(anchor?.getAttribute("href")).toBe("/r/r-a/p/p1/");
   });
+
+  it("keeps name-matching empty remotes and projects visible", async () => {
+    const emptyRemote: RemoteSummary = {
+      remoteId: "r-empty", name: "quiet-server", version: "v", status: "offline",
+      lastSeenAt: "2026-10-01T00:00:00.000Z", projectCount: 0, artifactCount: 0,
+    };
+    const emptyProjectRemote: RemoteSummary = {
+      remoteId: "r-project", name: "project-host", version: "v", status: "online",
+      lastSeenAt: new Date().toISOString(), projectCount: 1, artifactCount: 0,
+    };
+    const emptyCatalog: RemoteOverviewGroup[] = [
+      { remote: emptyRemote, projects: [] },
+      {
+        remote: emptyProjectRemote,
+        projects: [{
+          project: { projectId: "p-empty", name: "quiet-project", addedAt: new Date().toISOString() },
+          totalCount: 0,
+          artifacts: [],
+        }],
+      },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ remotes: emptyCatalog }), { status: 200 })));
+    renderWithClient(<BrokerOverview />);
+    const search = await screen.findByRole("searchbox", { name: "Search servers and projects" });
+
+    fireEvent.change(search, { target: { value: "quiet-server" } });
+    expect(await screen.findByText("quiet-server")).toBeTruthy();
+    expect(screen.getByText("No projects reported yet.")).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: "quiet-project" } });
+    expect(await screen.findByText("quiet-project")).toBeTruthy();
+    expect(screen.getByText("No artifacts yet.")).toBeTruthy();
+    expect(screen.queryByText("quiet-server")).toBeNull();
+  });
+
+  it("searches broker overview by remote, project, and artifact names", async () => {
+    renderWithClient(<BrokerOverview />);
+    const search = await screen.findByRole("searchbox", { name: "Search servers and projects" });
+
+    fireEvent.change(search, { target: { value: "ubuntu-dev" } });
+    expect(await screen.findByText("ubuntu-dev")).toBeTruthy();
+    expect(screen.getByText("Shop demo")).toBeTruthy();
+    expect(screen.queryByText("macbook")).toBeNull();
+
+    fireEvent.change(search, { target: { value: "blog" } });
+    expect(await screen.findByText("blog")).toBeTruthy();
+    expect(screen.getByText("Hello")).toBeTruthy();
+    expect(screen.queryByText("ubuntu-dev")).toBeNull();
+
+    fireEvent.change(search, { target: { value: "Shop demo" } });
+    expect(await screen.findByText("Shop demo")).toBeTruthy();
+    expect(screen.queryByText("Hello")).toBeNull();
+  });
 });
 
 describe("BrokerProjectDashboard", () => {
@@ -129,6 +182,20 @@ describe("BrokerProjectDashboard", () => {
     // Global shell survives the scoped error.
     expect(screen.getByText("All remotes")).toBeTruthy();
     expect(screen.getAllByText(/ubuntu-dev/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps filtered results authoritative after selecting an artifact and links back to all remotes", async () => {
+    stubProject({ ok: true });
+    renderWithClient(<BrokerProjectDashboard remote={REMOTE_A} remotes={[REMOTE_A, REMOTE_B]} projectId="p1" />);
+    fireEvent.click(await screen.findByText("Shop demo"));
+
+    const backLink = screen.getByRole("link", { name: "All remotes" });
+    expect(backLink.getAttribute("href")).toBe("/");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search artifacts" }), {
+      target: { value: "no-such-artifact" },
+    });
+    expect(await screen.findByText("No matches")).toBeTruthy();
   });
 
   it("mobile flow: artifact list → overlay → close returns to the list", async () => {

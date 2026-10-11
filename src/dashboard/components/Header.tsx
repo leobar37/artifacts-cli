@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, RefreshCw, PanelLeft, Sun, Moon } from 'lucide-react';
+import { Package, RefreshCw, PanelLeft, Sun, Moon, ChevronLeft } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme.js';
 import type { ProjectEntry, RemoteSummary } from '../../types/artifact.js';
 import { ProjectSwitcher } from './ProjectSwitcher.js';
@@ -45,6 +45,9 @@ interface HeaderProps {
   remoteId?: string;
   remotes?: RemoteSummary[];
   onNavigateProject?: (projectId: string) => void;
+  /** Optional way back (broker project view → all remotes). */
+  backHref?: string;
+  backLabel?: string;
 }
 const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -53,7 +56,7 @@ const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
   { value: 'wireframe', label: 'Wireframe' },
 ];
 
-export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects, remoteName, remoteStatus, remoteId, remotes, onNavigateProject }: HeaderProps) {
+export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects, remoteName, remoteStatus, remoteId, remotes, onNavigateProject, backHref, backLabel }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const daemonAlive = useDaemonHealth();
 
@@ -67,6 +70,15 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
     <header className="flex flex-col border-b border-line bg-panel sticky top-0 z-20">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
+          {backHref && (
+            <a
+              href={backHref}
+              className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-text-muted hover:bg-panel-hover hover:text-text-primary transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {backLabel ?? 'Back'}
+            </a>
+          )}
           {sidebarCollapsed && onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
