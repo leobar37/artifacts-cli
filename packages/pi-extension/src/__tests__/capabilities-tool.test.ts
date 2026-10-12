@@ -70,7 +70,7 @@ describe("artifact_capabilities tool", () => {
     expect(tool).toBeDefined();
     const result = await tool!.execute("t1", {}, undefined, undefined, { cwd: work });
     const details = CapabilitiesDetails.parse(result.details);
-    expect(details.formats.map((f) => f.format)).toEqual(["html", "md", "mdx"]);
+    expect(details.formats.map((f) => f.format)).toEqual(["mdx", "md", "html"]);
     expect(details.components.map((c) => c.name).sort()).toEqual([
       "Audio", "Callout", "Chart", "Kanban", "Properties", "Section", "Stat", "Stats", "Svg", "TaskList", "Video", "Webframe",
     ]);
