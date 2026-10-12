@@ -44,19 +44,19 @@ export function getViewerCapabilities(): ViewerCapabilities {
   return {
     formats: [
       {
-        format: 'html',
-        entryFile: 'index.html',
-        description: 'standalone HTML page (legacy default), isolated iframe',
+        format: 'mdx',
+        entryFile: 'index.mdx',
+        description: 'default for documents: Markdown + built-in components (Chart, Stats, Callout, Section, Svg, Webframe, Video, Audio, TaskList, Kanban, Properties)',
       },
       {
         format: 'md',
         entryFile: 'index.md',
-        description: 'Markdown rendered by the built-in viewer (GFM + mermaid)',
+        description: 'plain prose only (no visuals); Markdown rendered by the built-in viewer (GFM + mermaid)',
       },
       {
-        format: 'mdx',
-        entryFile: 'index.mdx',
-        description: 'Markdown + built-in components (Chart, Stats, Callout, Section, Svg, Webframe, Video, Audio, TaskList, Kanban, Properties)',
+        format: 'html',
+        entryFile: 'index.html',
+        description: 'standalone HTML page (interactive/legacy), isolated iframe',
       },
     ],
     components: [
@@ -225,6 +225,7 @@ export function getViewerCapabilities(): ViewerCapabilities {
 
 function usageGuidance(): string[] {
   return [
+    'Prefer mdx for documents (same markdown plus components); md only for plain prose with no visuals; html only for standalone interactive pages.',
     'Default to prose: a visual must do work text cannot.',
     'Diagram only for real structure (3+ interacting steps/actors, architecture, state transitions) — one per document max.',
     'Chart only with REAL data from the task/repo/conversation; never invent numbers to justify a chart.',

@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { formatCapabilitiesText, getViewerCapabilities } from '../capabilities.js';
 
 describe('getViewerCapabilities', () => {
-  it('documents the three formats with their entry files', () => {
+  it('documents the three formats with their entry files, MDX first', () => {
     const caps = getViewerCapabilities();
-    expect(caps.formats.map((f) => f.format)).toEqual(['html', 'md', 'mdx']);
-    expect(caps.formats.map((f) => f.entryFile)).toEqual(['index.html', 'index.md', 'index.mdx']);
+    expect(caps.formats.map((f) => f.format)).toEqual(['mdx', 'md', 'html']);
+    expect(caps.formats.map((f) => f.entryFile)).toEqual(['index.mdx', 'index.md', 'index.html']);
   });
 
   it('documents every renderer registered in mdx-components', () => {

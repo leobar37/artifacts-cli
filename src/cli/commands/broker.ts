@@ -251,6 +251,35 @@ export function brokerCommand(program: Command) {
       log.info(chalk.cyan(`http://${daemon.host}:${daemon.port}/`));
     });
 
+  broker
+    .command("remotes")
+    .description("List connected remotes with switch URLs")
+    .action(async () => {
+      const daemon = getBrokerDaemon();
+      if (!daemon || !(await isBrokerAlive(daemon))) {
+        log.error("No broker running. Start with: artifact broker start");
+        process.exit(1);
+      }
+      const target = daemon.host === "0.0.0.0" ? "127.0.0.1" : daemon.host;
+      const base = `http://${daemon.host}:${daemon.port}`;
+      const res = await fetch(`http://${target}:${daemon.port}/api/remotes`);
+      if (!res.ok) {
+        log.error(`Failed to list remotes (HTTP ${res.status})`);
+        process.exit(1);
+      }
+      const body = (await res.json().catch(() => null)) as { remotes?: { remoteId: string; name: string; status: string; lastSeenAt: string }[] } | null;
+      const remotes = body?.remotes ?? [];
+      if (remotes.length === 0) {
+        log.info("No remotes registered. Connect one with: artifact agent start --broker <url>");
+        return;
+      }
+      for (const r of remotes) {
+        const url = `${base}/r/${encodeURIComponent(r.remoteId)}/`;
+        const status = r.status === "online" ? chalk.green("Online") : chalk.gray(`Offline (last seen ${r.lastSeenAt})`);
+        log.info(`${chalk.bold(r.name)} ${chalk.dim(`(${r.remoteId})`)}  ${status}\n  ${chalk.cyan(url)}`);
+      }
+    });
+
   const remote = broker.command("remote").description("Manage registered remotes");
   remote
     .command("remove <remoteId>")

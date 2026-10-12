@@ -71,9 +71,9 @@ function markdownType(source: string): Artifact['type'] {
     : 'generic';
 }
 
-/** First format whose entry file exists in the slug directory. */
+/** First format whose entry file exists in the slug directory (MDX first). */
 function detectFormat(dir: string): { format: ArtifactFormat; file: string } | null {
-  for (const format of ['html', 'md', 'mdx'] as const) {
+  for (const format of ['mdx', 'md', 'html'] as const) {
     const file = path.join(dir, FORMAT_FILES[format]);
     if (existsSync(file)) return { format, file };
   }

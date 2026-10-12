@@ -26,14 +26,15 @@ afterEach(() => {
 });
 
 describe('serveArtifactFile markdown', () => {
-  it('serves md as the viewer page (html, no-store)', async () => {
+  it('serves md as the chromeless viewer page (html, no-store)', async () => {
     const res = await app.request('/artifacts/notes/index.md');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = await res.text();
     expect(body).toContain('<h1 id="notes">Notes');
-    expect(body).toContain('mv-format">md');
+    expect(body).toContain('mv-copy');
+    expect(body).not.toContain('mv-bar');
   });
 
   it('serves the raw source with ?raw=1 as text/markdown', async () => {
@@ -48,12 +49,13 @@ describe('serveArtifactFile markdown', () => {
     expect(await res.text()).toContain('data-theme="light"');
   });
 
-  it('serves mdx through the viewer with the mdx badge', async () => {
+  it('serves mdx through the chromeless viewer with copy action', async () => {
     mkdirSync(join(base, 'doc'), { recursive: true });
     writeFileSync(join(base, 'doc', 'index.mdx'), 'export const x = 1\n\n# Doc\n');
     const res = await app.request('/artifacts/doc/index.mdx');
     const body = await res.text();
-    expect(body).toContain('mv-format">mdx');
+    expect(body).toContain('mv-copy');
+    expect(body).toContain('Copiar markdown');
     expect(body).toContain('<h1 id="doc">Doc');
     expect(body).not.toContain('export const x');
   });

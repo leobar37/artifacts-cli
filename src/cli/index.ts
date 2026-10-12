@@ -7,6 +7,7 @@ import { startCommand } from "./commands/start.js";
 import { initCommand } from "./commands/init.js";
 import { serveCommand } from "./commands/serve.js";
 import { listCommand } from "./commands/list.js";
+import { readCommand } from "./commands/read.js";
 import { stopCommand } from "./commands/stop.js";
 import { unregisterCommand } from "./commands/unregister.js";
 import { reloadCommand } from "./commands/reload.js";
@@ -16,7 +17,6 @@ import { capabilitiesCommand, guideCommand } from "./commands/capabilities.js";
 import { logsCommand } from "./commands/logs.js";
 import { brokerCommand } from "./commands/broker.js";
 import { agentCommand } from "./commands/agent.js";
-const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const packageJson = JSON.parse(
@@ -33,6 +33,7 @@ initCommand(program);
 serveCommand(program);
 startCommand(program);
 listCommand(program);
+readCommand(program);
 stopCommand(program);
 unregisterCommand(program);
 reloadCommand(program);

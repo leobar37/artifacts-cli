@@ -11,16 +11,28 @@ per project before creating artifacts.
 
 ## `artifact create <slug>`
 
-Scaffold `docs/artifacts/<slug>/` with a standalone `index.html` pre-filled
-with `<title>` and the `artifact-type` meta tag. Registers
-the project and notifies the live daemon so the artifact shows up right away.
+Scaffold `docs/artifacts/<slug>/` with `index.mdx` by default (MDX document with
+frontmatter `title:`/`type:`). Registers the project and notifies the live daemon
+so the artifact shows up right away.
 
 | Flag | Description |
 |------|-------------|
 | `-t, --title <title>` | Human-readable title (defaults to the slug) |
 | `--type <type>` | `generic` (default), `study`, or `wireframe` |
-| `--force` | Overwrite `index.html` if it already exists |
+| `--format <format>` | `mdx` (default for documents), `md` for plain prose, `html` for standalone pages |
+| `--force` | Overwrite the entry file if it already exists |
 
+## `artifact read <slug>`
+
+Print any artifact's source (MDX first, then `md`, then `html`). Resolves the
+versioned store first, then falls back to `docs/artifacts/<slug>/index.{mdx,md,html}`
+so plain files are readable too. For agents and scripts.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Metadata + content as JSON |
+| `--raw` | Content only, no header |
+| `--offset <n> --limit <n>` | Page through large files (defaults 0/500) |
 ## `artifact start`
 
 Ensure the daemon is running, register the current project, open its dashboard.
@@ -100,4 +112,20 @@ the URL either way.
 
 Print the daemon log (`~/.artifact/daemon.log`, rotated at 1 MB). `-f`
 follows new lines until interrupted.
+
+## `artifact broker remotes`
+
+List every remote known to the central broker (online + offline leases) with
+per-remote central URLs for switching:
+
+```bash
+artifact broker remotes
+# remote-1  Online   http://<broker>/r/remote-1/
+# laptop    Offline  http://<broker>/r/laptop/  (last seen …)
+```
+
+In the dashboard, the same switching lives in the project header remote picker
+(`RemoteSwitcher`): `/r/<remoteId>/` for the remote overview,
+`/r/<remoteId>/p/<projectId>/` for one project. Full-page navigation is sufficient —
+no client router needed.
 

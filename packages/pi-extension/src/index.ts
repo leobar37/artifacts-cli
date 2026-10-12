@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { LocalStore, getViewerCapabilities } from "@tarileo/artifact-store";
 import type { ArtifactEntry } from "@tarileo/artifact-store";
 import { NO_DAEMON_HINT, buildLinks, getProjectId, readDaemon, resolveDashboard, slugify, viewLine } from "./dashboard.js";
@@ -61,6 +63,42 @@ function entryFile(format: ArtifactFormat): string {
 
 
 const store = new LocalStore();
+const FS_ENTRY_FILES = ["index.mdx", "index.md", "index.html"] as const;
+
+function readFilesystemArtifact(cwd: string, slug: string): { format: ArtifactFormat; file: string; content: string } | null {
+  for (const entry of FS_ENTRY_FILES) {
+    const file = path.join(cwd, "docs", "artifacts", slug, entry);
+    if (existsSync(file)) {
+      const format: ArtifactFormat = entry.endsWith(".mdx") ? "mdx" : entry.endsWith(".md") ? "md" : "html";
+      try {
+        return { format, file, content: readFileSync(file, "utf-8") };
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function listFilesystemSlugs(cwd: string): { slug: string; format: ArtifactFormat }[] {
+  const dir = path.join(cwd, "docs", "artifacts");
+  let names: string[] = [];
+  try {
+    names = readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+  const out: { slug: string; format: ArtifactFormat }[] = [];
+  for (const slug of names) {
+    for (const entry of FS_ENTRY_FILES) {
+      if (existsSync(path.join(dir, slug, entry))) {
+        out.push({ slug, format: entry.endsWith(".mdx") ? "mdx" : entry.endsWith(".md") ? "md" : "html" });
+        break;
+      }
+    }
+  }
+  return out;
+}
 
 /**
  * artifacts:// protocol for reads via omp's read tool.
@@ -81,7 +119,19 @@ const artifactsProtocolHandler = {
       throw new Error(`artifacts:// only supports <slug>[/<version>], got: ${url.href}`);
     }
     const found = version ? store.getVersion(cwd, slug, version) : store.get(cwd, slug);
-    if (!found) throw new Error(`Unknown artifact: ${slug}${version ? `@${version}` : ""}`);
+    if (!found) {
+      if (version) throw new Error(`Unknown artifact: ${slug}@${version}`);
+      const disk = readFilesystemArtifact(cwd, slug);
+      if (!disk) throw new Error(`Unknown artifact: ${slug}`);
+      return {
+        url: url.href,
+        content: disk.content,
+        contentType: disk.format === "html" ? "text/html; charset=utf-8" : "text/markdown; charset=utf-8",
+        size: Buffer.byteLength(disk.content, "utf-8"),
+        sourcePath: disk.file,
+        notes: [],
+      };
+    }
     return {
       url: url.href,
       content: found.content,
@@ -118,18 +168,18 @@ export default function (pi: Pi) {
     name: "artifact_create",
     label: "Artifact Create",
     description:
-      "Save an artifact (standalone HTML, or Markdown/MDX with format=md|mdx) outside git and return path + version + shareable dashboard view link. For documents prefer md — choose mdx only when a visual genuinely adds information (real structure for a diagram, REAL data for a chart; never invent numbers, max one diagram per document). Call artifact_capabilities for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
+      "Save an artifact (MDX document, Markdown, or standalone HTML) outside git and return path + version + shareable dashboard view link. For documents prefer mdx — it renders the same markdown plus Chart/Stats/Callout/Section/Svg/Video/Audio and mermaid when a visual genuinely adds information (real structure for a diagram, REAL data for a chart; never invent numbers, max one diagram per document). Use md only for plain prose with no visuals, html only for standalone interactive pages. Call artifact_capabilities for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       title: z.string().describe("Human-readable title"),
-      content: z.string().describe("Complete source: standalone HTML, or Markdown/MDX when format is md/mdx"),
-      format: z.enum(["html", "md", "markdown", "mdx"]).default("html").describe("storage format: html (default), md/markdown, mdx"),
+      content: z.string().describe("Complete source: MDX/Markdown document, or standalone HTML when format is html"),
+      format: z.enum(["html", "md", "markdown", "mdx"]).default("mdx").describe("storage format: mdx (default for documents), md for plain prose, html for standalone pages"),
       type: z.string().default("generic").optional().describe("generic|study|wireframe"),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const input = params as { slug: string; title: string; content: string; format?: string; type?: string };
       const slug = slugify(input.slug);
-      const format = normalizeFormat(input.format ?? "html");
+      const format = normalizeFormat(input.format ?? "mdx");
       const result = store.put(ctx.cwd, {
         slug,
         title: input.title,
@@ -147,7 +197,7 @@ export default function (pi: Pi) {
     name: "artifact_read",
     label: "Artifact Read",
     description:
-      "Read an artifact's source (HTML, Markdown or MDX) for editing (paging with offset/limit for large files). Use it before editing to work on top of latest. NEVER use it to show content to the user — to present an artifact, call artifact_show and reply with the dashboard link.",
+      "Read any artifact's source (MDX, Markdown or HTML, versioned store or docs/artifacts on disk) for editing (paging with offset/limit for large files). Resolves the store first, then falls back to docs/artifacts/<slug>/index.{mdx,md,html} so plain files are readable too. No version = latest. Shell equivalent: artifact read <slug>. Use it before editing to work on top of latest. NEVER use it to show content to the user — to present an artifact, call artifact_show and reply with the dashboard link.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       version: z.string().optional().describe("e.g. v002. No version = latest"),
@@ -156,15 +206,27 @@ export default function (pi: Pi) {
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const { slug, version, offset, limit } = params as { slug: string; version?: string; offset: number; limit: number };
-      const found = version ? store.getVersion(ctx.cwd, slugify(slug), version) : store.get(ctx.cwd, slugify(slug));
-      if (!found) {
-        const text = `NOT_FOUND ${slug}${version ? `@${version}` : ""}`;
+      const clean = slugify(slug);
+      const found = version ? store.getVersion(ctx.cwd, clean, version) : store.get(ctx.cwd, clean);
+      if (found) {
+        const lines = found.content.split("\n");
+        const slice = lines.slice(offset, offset + limit).join("\n");
+        const text = `${found.slug}@${found.version} (${found.title}, ${found.format}, sha ${found.sha})\nfile: ${store.dirFor(ctx.cwd).dir}/${found.slug}/${entryFile(found.format)}\n---\n${slice}`;
+        return { content: [{ type: "text", text }], details: { ...found, totalLines: lines.length } };
+      }
+      if (version) {
+        const text = `NOT_FOUND ${slug}@${version}`;
         return { content: [{ type: "text", text }], details: { found: false } };
       }
-      const lines = found.content.split("\n");
+      const disk = readFilesystemArtifact(ctx.cwd, clean);
+      if (!disk) {
+        const text = `NOT_FOUND ${slug}. Try artifact_list or: artifact read ${clean}`;
+        return { content: [{ type: "text", text }], details: { found: false } };
+      }
+      const lines = disk.content.split("\n");
       const slice = lines.slice(offset, offset + limit).join("\n");
-      const text = `${found.slug}@${found.version} (${found.title}, ${found.format}, sha ${found.sha})\nfile: ${store.dirFor(ctx.cwd).dir}/${found.slug}/${entryFile(found.format)}\n---\n${slice}`;
-      return { content: [{ type: "text", text }], details: { ...found, totalLines: lines.length } };
+      const text = `${clean}@disk (${clean}, ${disk.format}, filesystem fallback)\nfile: ${disk.file}\n---\n${slice}`;
+      return { content: [{ type: "text", text }], details: { slug: clean, title: clean, format: disk.format, version: "disk", content: disk.content, totalLines: lines.length, file: disk.file } };
     },
   });
 
@@ -219,13 +281,18 @@ export default function (pi: Pi) {
   pi.registerTool({
     name: "artifact_list",
     label: "Artifact List",
-    description: "List artifacts in the current repo (visible cross-worktree via stable repoId).",
+    description: "List every artifact in the current repo: versioned store plus plain docs/artifacts on disk (visible cross-worktree via stable repoId). Shell equivalent: artifact read <slug> for content.",
     parameters: z.object({}),
     async execute(_id, _params, _signal, _onUpdate, ctx) {
       const items = store.list(ctx.cwd);
+      const known = new Set(items.map((i) => i.slug));
+      const merged: unknown[] = [...items];
+      for (const disk of listFilesystemSlugs(ctx.cwd)) {
+        if (!known.has(disk.slug)) merged.push({ slug: disk.slug, format: disk.format, source: "filesystem" });
+      }
       return {
-        content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
-        details: { items },
+        content: [{ type: "text", text: JSON.stringify(merged, null, 2) }],
+        details: { items: merged },
       };
     },
   });
@@ -234,7 +301,7 @@ export default function (pi: Pi) {
     name: "artifact_show",
     label: "Artifact Show",
     description:
-      "Get the shareable dashboard link for an artifact (or the all-artifacts overview when no slug is given). ALWAYS use this when the user asks to see, show, open, or explain an artifact — reply with the link, never paste full HTML and never Read the file.",
+      "Get the shareable dashboard link for an artifact (or the all-artifacts overview when no slug is given). ALWAYS use this when the user asks to see, show, open, or explain an artifact — reply with the link, never paste full content and never Read the file.",
     parameters: z.object({
       slug: z.string().optional().describe("kebab-case, e.g. auth-summary. Omit for the overview link."),
     }),
@@ -242,7 +309,7 @@ export default function (pi: Pi) {
       const { slug } = params as { slug?: string };
       if (slug) {
         const clean = slugify(slug);
-        if (!store.get(ctx.cwd, clean)) {
+        if (!store.get(ctx.cwd, clean) && !readFilesystemArtifact(ctx.cwd, clean)) {
           const text = `NOT_FOUND ${clean}. Use artifact_list to see available slugs.`;
           return { content: [{ type: "text", text }], details: { found: false } };
         }

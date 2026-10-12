@@ -151,13 +151,15 @@ describe('renderMarkdownBody mdx components', () => {
 });
 
 describe('renderMarkdownViewer', () => {
-  it('wraps the body in a standalone page with slug and format badge', () => {
+  it('wraps the body in a chromeless page with copy action and no top bar', () => {
     const page = renderMarkdownViewer('# Hi\n', { slug: 'notes', format: 'md' });
     expect(page).toMatch(/^<!doctype html>/);
     expect(page).toContain('data-theme="dark"');
-    expect(page).toContain('mv-slug">notes');
-    expect(page).toContain('mv-format">md');
-    expect(page).toContain('href="?raw=1"');
+    expect(page).not.toContain('mv-bar');
+    expect(page).not.toContain('mv-slug');
+    expect(page).toContain('mv-copy');
+    expect(page).toContain('Copiar markdown');
+    expect(page).toContain('?raw=1');
     expect(page).toContain('<h1 id="hi">Hi');
   });
 
@@ -171,6 +173,16 @@ describe('renderMarkdownViewer', () => {
     const page = renderMarkdownViewer('x', { slug: 'a"<script>', format: 'md' });
     expect(page).not.toContain('a"<script>');
     expect(page).toContain('a&quot;&lt;script&gt;');
+  });
+
+  it('renders a collapsible Secciones sidebar with copy support', () => {
+    const long = '# T\n\n## Uno\n\nx\n\n## Dos\n\nx\n\n### Detalle\n\nx\n';
+    const page = renderMarkdownViewer(long, { slug: 'doc', format: 'md' });
+    expect(page).toContain('aria-label="Secciones"');
+    expect(page).toContain('mv-toc-toggle');
+    expect(page).toContain('mv-toc-open');
+    expect(page).toContain('mv-toc-collapsed');
+    expect(page).toContain('Copiar markdown');
   });
 });
 

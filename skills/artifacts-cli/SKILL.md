@@ -40,7 +40,8 @@ The essentials:
 
 ```bash
 artifact init
-artifact create <slug> [-t <title>] [--type <type>] [--format html|md|mdx]   # scaffold entry file
+artifact create <slug> [-t <title>] [--type <type>] [--format mdx|md|html]   # scaffold entry file (default mdx)
+artifact read <slug> [--json] [--raw] [--offset N --limit N]   # print any artifact (store first, docs/artifacts fallback)
 artifact capabilities [--json]    # formats, MDX components, mermaid, features (use --json from agents)
 artifact guide                    # open the live MDX guide in the browser
 artifact start [-p <port>] [--host <host>] [--tailscale] [--no-open] [--build]
@@ -51,14 +52,18 @@ artifact unregister [projectId]
 artifact reload <slug>
 artifact url [projectId]   # print the dashboard link (overview, or one project)
 artifact logs [-n 100]     # read the daemon log
+artifact broker remotes    # list connected remotes for switching (see Remote switching)
 ```
 ## Artifact conventions
 
-- Directory per artifact: `docs/artifacts/<slug>/` with `index.html`
-  (standalone HTML), `index.md` or `index.mdx` (Markdown/MDX).
-- Markdown/MDX: the server renders them into a self-contained viewer page —
+- Directory per artifact: `docs/artifacts/<slug>/` with `index.mdx` (default for documents),
+  `index.md` (plain prose, no visuals) or `index.html` (standalone interactive page).
+- Format priority is MDX first: the scanner, `artifact read`, and the omp tools resolve
+  `index.mdx` before `index.md` before `index.html`.
+- Markdown/MDX: the server renders them into a self-contained chromeless viewer page —
   GFM (tables, task lists), fenced code with syntax highlighting, theme that
-  follows the dashboard (`?theme=light|dark`), `?raw=1` for the plain source.
+  follows the dashboard (`?theme=light|dark`), `?raw=1` for the plain source,
+  floating "Copiar markdown" button (fetches `?raw=1`), collapsible Secciones sidebar.
   Frontmatter `title:`/`type:` feed the sidebar label and artifact type.
   MDX built-in components — `Chart` (bar/line/area/pie, recharts SSR),
   `Stats`+`Stat`, `Callout`, `Section`, `Svg`, `Webframe`, `Video`, `Audio` —
@@ -68,12 +73,28 @@ artifact logs [-n 100]     # read the daemon log
   placeholders. Mermaid diagrams: fenced blocks tagged `mermaid` render
   client-side (flowchart, sequence, ER, gantt...); the source stays visible
   if JS is unavailable. Live reference with working examples: `/mdx-guide`
-  (served by every daemon and broker; `artifact guide` opens it,
-  linked from the viewer bar).
+  (`artifact guide` opens it).
 - Type detection (HTML): `<meta name="artifact-type" content="study|wireframe|generic">`,
   with heuristics fallback (`x-data` Alpine markers, `wireframe`/`mockup` keywords).
 - `<title>` (HTML), frontmatter `title:` or the first `# heading` (Markdown)
   becomes the sidebar label; newest-modified sorts first.
+
+## Reading any artifact (LLM / shell)
+
+- Omp tools: `artifact_read` (store first, then `docs/artifacts/<slug>/index.{mdx,md,html}` fallback),
+  `artifact_list` (store + on-disk merge), `artifacts://<slug>` (latest) or `artifacts://<slug>/<version>`.
+- Shell without omp: `artifact read <slug> --json` (metadata + content) or `--raw` (content only).
+- Never guess the extension (`index.html` vs `index.mdx`) — let the tool resolve it.
+- Dashboard API (project-scoped, not `/api/projects/...`): `GET /p/<projectId>/api/artifacts`
+  lists every format; `GET /p/<projectId>/artifacts/<slug>/index.mdx?raw=1` returns raw source.
+
+## Remote switching (broker)
+
+- Broker root (`/`) groups every remote → project → artifact, including offline catalogs.
+- In any project header, the remote picker jumps between `/r/<remoteId>/`
+  and `/r/<remoteId>/p/<projectId>/` with full-page navigation.
+- CLI: `artifact broker remotes` lists online/offline remotes with central URLs;
+  `artifact broker url` prints the central broker URL to share.
 
 ## Exposing over the network
 
@@ -107,12 +128,13 @@ or `omp plugin install @tarileo/artifact-omp`), the agent NEVER writes
 `docs/artifacts/` by hand. Use these tools:
 
 - `artifact_create` — saves new content (creates `v001`): `content` plus
-  `format: html|md|mdx`. Markdown and MDX render in the built-in viewer;
-  prefer them for documents, reports and notes.
-- `artifact_read` — reads `latest` (or `version` + `offset/limit` for large files). Use it before editing.
+  `format: mdx|md|html` (default `mdx`). MDX renders the same markdown plus components;
+  use `md` only for plain prose with no visuals, `html` only for standalone interactive pages.
+- `artifact_read` — reads any artifact (`latest` or `version` + `offset/limit`); store first,
+  then `docs/artifacts/<slug>/index.{mdx,md,html}` fallback. Use it before editing.
 - `artifact_update` — saves edits as a new version. Pass the `baseVersion` from the read: if someone else touched the artifact meanwhile, it answers `CONFLICT` instead of overwriting. Omitting `format` keeps the artifact's current one.
 - `artifact_versions` — history for rollback (re-publish that version's content via `artifact_update`).
-- `artifact_list` — slugs in the current repo.
+- `artifact_list` — every slug in the current repo (store + on-disk merge).
 - `artifact_show` — shareable dashboard link for an artifact (or the all-artifacts overview with no slug). ALWAYS use this when the user asks to see, show, open, or explain an artifact.
 Each `put` versions into the global store (`~/.artifact/store/<repoId>/`, same id
 across all your worktrees) and leaves `docs/artifacts/<slug>/index.<ext>` as a symlink
@@ -130,10 +152,10 @@ You write the document; the dashboard's built-in viewer renders it. Full
 authoring reference with every component, prop table and copy-paste
 skeleton: [references/mdx-components.md](references/mdx-components.md).
 
-Decision rules:
+Decision rules (MDX first):
 
-- Documents/reports/notes → `format: "md"`; add charts/KPIs/callouts/sections/graphics → `"mdx"`.
-- Long docs: 3+ headings (h1–h3 count, so a `#` title plus two `##` sections is enough) auto-build the Secciones sidebar — just keep adding headings.
+- Documents/reports/notes → `format: "mdx"` by default; `md` only for plain prose with no visuals; `html` only for standalone interactive pages.
+- Long docs: 3+ headings (h1–h3 count, so a `#` title plus two `##` sections is enough) auto-build the collapsible Secciones sidebar — just keep adding headings.
 - Components: `<Chart type=bar|line|area|pie data={[…]} />`, `<Stats><Stat
   value="…" label="…" delta="+…" /></Stats>`, `<Callout type=info|warning|
   success|danger title="…">markdown children</Callout>`, `<Section
@@ -163,7 +185,7 @@ version): `artifact_capabilities` (omp tool) or `artifact capabilities --json`.
 Before generating an artifact, check what the viewer supports:
 `artifact capabilities --json` — formats, components with props and
 examples, mermaid usage, features, and the live guide URL. Prefer
-markdown/mdx for documents; use `Chart`/`Stats`/`Callout`/`Section`/`Svg`/`Video`/`Audio` and mermaid
+mdx for documents; use `Chart`/`Stats`/`Callout`/`Section`/`Svg`/`Video`/`Audio` and mermaid
 fences instead of inventing custom components — unknown JSX renders as a
 placeholder, never a real widget. The same information, rendered with live
 examples, lives at `/mdx-guide` (`artifact guide`).
@@ -175,5 +197,5 @@ When the user asks to see, show, open, or explain an artifact: call
 with the dashboard link. NEVER paste the full HTML/Markdown back and NEVER `Read`
 `docs/artifacts/<slug>/index.*` to answer — those files are symlinks into
 the store, and their content belongs in the dashboard, not the chat.
-`artifact_read` is for editing only. If `artifact_show` answers `NO_DAEMON`,
+`artifact_read` (or `artifact read <slug>` in shell) is for editing only. If `artifact_show` answers `NO_DAEMON`,
 tell the user to run `artifact start` first.

@@ -42,15 +42,14 @@ export function buildHtmlTemplate(title: string, type: ArtifactKind): string {
 `;
 }
 
-/** Markdown scaffold: frontmatter carries title/type, body starts the doc. */
-export function buildMarkdownTemplate(title: string, type: ArtifactKind, format: 'md' | 'mdx'): string {
-  const head = format === 'mdx' ? 'import { Chart } from "./components"\n\n' : '';
+/** Markdown scaffold: frontmatter carries title/type, body starts the doc (components are built-in, no imports). */
+export function buildMarkdownTemplate(title: string, type: ArtifactKind, _format: 'md' | 'mdx'): string {
   return `---
 title: ${title}
 type: ${type}
 ---
 
-${head}# ${title}
+# ${title}
 
 Write here. GFM tables, task lists and fenced code render in the dashboard viewer.
 `;
@@ -59,11 +58,11 @@ Write here. GFM tables, task lists and fenced code render in the dashboard viewe
 export function createCommand(program: Command) {
   program
     .command('create')
-    .description('Scaffold a new artifact (HTML by default, or Markdown/MDX with --format)')
+    .description('Scaffold a new artifact (MDX by default, or Markdown/HTML with --format)')
     .argument('<slug>', 'kebab-case id, e.g. auth-summary')
     .option('-t, --title <title>', 'Human-readable title (defaults to the slug)')
     .option('--type <type>', 'Artifact type: generic|study|wireframe (default generic)')
-    .option('--format <format>', 'Storage format: html|md|mdx (default html)')
+    .option('--format <format>', 'Storage format: mdx|md|html (default mdx)')
     .option('--force', 'Overwrite the entry file if it already exists')
     .action(async (slug: string, options) => {
       if (!isValidSlug(slug)) {
@@ -77,7 +76,7 @@ export function createCommand(program: Command) {
         process.exit(1);
       }
 
-      const format = (options.format ?? 'html') as ArtifactFormat;
+      const format = (options.format ?? 'mdx') as ArtifactFormat;
       if (!(VALID_FORMATS as readonly string[]).includes(format)) {
         log.error(`✗ Invalid format "${format}". Must be one of: ${VALID_FORMATS.join(', ')}`);
         process.exit(1);

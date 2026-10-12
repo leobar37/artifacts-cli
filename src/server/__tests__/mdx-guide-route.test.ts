@@ -34,7 +34,7 @@ describe('GET /mdx-guide', () => {
     expect(res.headers.get('content-type')?.toLowerCase()).toBe('text/html; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = await res.text();
-    expect(body).toContain('mv-format">mdx');
+    expect(body).toContain('mv-copy');
     expect(body).toContain('recharts-bar');
     expect(body).toContain('recharts-pie');
     expect(body).toContain('mv-stats');

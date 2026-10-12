@@ -7,11 +7,11 @@ import { findJsxBlock, parseJsxProps, renderMdxComponent, slugifyHeading, EXPAND
 export type ViewerTheme = "dark" | "light";
 
 export interface MarkdownViewerOptions {
-  /** Sidebar/slug label for the top bar. */
+  /** Document slug for the <title> tag. */
   slug: string;
   format: "md" | "mdx";
   theme?: ViewerTheme;
-  /** Raw source path relative to the project (for the "raw" link label). */
+  /** Raw source path relative to the project (kept for API compat). */
   relativePath?: string;
 }
 
@@ -39,14 +39,14 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   // the current single-column look untouched.
   const { html: anchored, toc } = addHeadingAnchors(body);
   const withToc = toc.length >= 3;
-  const tocScript = withToc ? tocBootScript() : "";
+  const tocScript = withToc ? tocBootScript() + tocCollapseScript() : "";
   const mermaidScript = anchored.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
   const graphScript = anchored.includes('class="mv-graph') ? graphBootScript() : "";
   const dataScript = anchored.includes('class="mv-data mv-data-src"') ? dataBootScript() : "";
   const content = withToc
-    ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><p class="mv-toc-title">Secciones</p><input class="mv-toc-search" type="search" placeholder="Filtrar secciones…" aria-label="Filtrar secciones" autocomplete="off"><ul>${toc
+    ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><div class="mv-toc-head"><p class="mv-toc-title">Secciones</p><button class="mv-toc-toggle" type="button" title="Ocultar secciones" aria-label="Ocultar secciones">‹</button></div><input class="mv-toc-search" type="search" placeholder="Filtrar secciones…" aria-label="Filtrar secciones" autocomplete="off"><ul>${toc
         .map((e) => `<li class="mv-toc-l${e.level}"><a href="#${e.id}">${escapeHtml(e.text)}</a></li>`)
-        .join("")}<li class="mv-toc-empty" hidden>Sin coincidencias</li></ul></nav><div class="mv-content">${anchored}</div></div>`
+        .join("")}<li class="mv-toc-empty" hidden>Sin coincidencias</li></ul></nav><button class="mv-toc-open" type="button" hidden>Secciones</button><div class="mv-content">${anchored}</div></div>`
     : `<main class="mv-content">${anchored}</main>`;
   return `<!doctype html>
 <html lang="en" data-theme="${theme}">
@@ -57,14 +57,10 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
 <style>${baseCss(theme)}${hljsCss(theme)}</style>
 </head>
 <body>
-<header class="mv-bar">
-  <span class="mv-slug">${escapeHtml(options.slug)}</span>
-  <span class="mv-format">${options.format}</span>
-  <a class="mv-raw" href="?raw=1" title="${escapeHtml(options.relativePath ?? "raw source")}">raw</a>
-  <a class="mv-raw" href="/mdx-guide" target="_blank" title="components you can use inside .mdx artifacts">mdx guide</a>
-</header>
 ${content}
+<button class="mv-copy" type="button" title="Copiar markdown" aria-label="Copiar markdown">Copiar markdown</button>
 ${tocScript}
+${copyBootScript()}
 ${mermaidScript}
 ${graphScript}
 ${dataScript}
@@ -156,6 +152,60 @@ function tocBootScript(): string {
   Object.keys(byId).forEach(function (id) {
     var h = document.getElementById(id);
     if (h) obs.observe(h);
+  });
+})();
+</script>`;
+}
+function tocCollapseScript(): string {
+  return `<script>
+(function () {
+  var layout = document.querySelector(".mv-layout");
+  var nav = document.querySelector(".mv-toc");
+  var toggle = document.querySelector(".mv-toc-toggle");
+  var open = document.querySelector(".mv-toc-open");
+  if (!layout || !nav || !toggle || !open) return;
+  var KEY = "mv-toc-collapsed";
+  var set = function (collapsed) {
+    layout.classList.toggle("toc-hidden", collapsed);
+    nav.hidden = collapsed;
+    open.hidden = !collapsed;
+    try { localStorage.setItem(KEY, collapsed ? "1" : "0"); } catch (e) {}
+  };
+  toggle.addEventListener("click", function () { set(true); });
+  open.addEventListener("click", function () { set(false); });
+  var initial = false;
+  try { initial = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  if (initial) set(true);
+  else if (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) set(true);
+})();
+</script>`;
+}
+
+function copyBootScript(): string {
+  return `<script>
+(function () {
+  var btn = document.querySelector(".mv-copy");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    var done = function (ok) {
+      btn.textContent = ok ? "Copiado" : "Error";
+      setTimeout(function () { btn.textContent = "Copiar markdown"; }, 1600);
+    };
+    var rawUrl = window.location.pathname + "?raw=1";
+    fetch(rawUrl, { credentials: "same-origin" }).then(function (r) {
+      if (!r.ok) throw new Error("raw " + r.status);
+      return r.text();
+    }).then(function (text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      }
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { done(document.execCommand("copy")); } catch (e) { done(false); }
+      document.body.removeChild(ta);
+    }).catch(function () { done(false); });
   });
 })();
 </script>`;
@@ -668,19 +718,14 @@ body {
   font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.mv-bar {
-  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px;
-  padding: 8px 20px; background: var(--bar-bg); border-bottom: 1px solid var(--border);
-  font-size: 12px; color: var(--muted);
-}
-.mv-slug { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.mv-format {
-  padding: 1px 7px; border-radius: 10px; font-weight: 600; letter-spacing: .03em;
-  background: var(--badge-bg); color: var(--badge-fg); text-transform: uppercase; font-size: 10px;
-}
-.mv-raw { margin-left: auto; color: var(--muted); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px; }
-.mv-raw:hover { color: var(--link); border-color: var(--link); }
 .mv-content { max-width: 780px; margin: 0 auto; padding: 40px 24px 96px; }
+.mv-copy {
+  position: fixed; right: 16px; bottom: 16px; z-index: 50;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bar-bg); color: var(--fg); font-size: 12px; font-weight: 600;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+.mv-copy:hover { color: var(--link); border-color: var(--link); }
 .mv-content > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 1.6em 0 .6em; font-weight: 650; }
 h1 { font-size: 1.9em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
@@ -772,7 +817,7 @@ mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mv-frame-body { display: block; width: 100%; border: 0; background: #fff; }
-.mv-content h1[id], .mv-content h2[id], .mv-content h3[id] { scroll-margin-top: 56px; }
+.mv-content h1[id], .mv-content h2[id], .mv-content h3[id] { scroll-margin-top: 16px; }
 .mv-anchor {
   margin-left: .4em; font-size: .7em; font-weight: 400; text-decoration: none;
   color: var(--muted); opacity: 0;
@@ -781,14 +826,30 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-anchor:hover { color: var(--link); }
 .mv-layout { display: flex; gap: 32px; max-width: 1120px; margin: 0 auto; padding: 0 24px; align-items: flex-start; }
 .mv-layout .mv-content { flex: 1; min-width: 0; max-width: 780px; margin: 0; padding-left: 0; padding-right: 0; }
+.mv-layout.toc-hidden { gap: 0; }
 .mv-toc {
-  position: sticky; top: 56px; flex: none; width: 248px; max-height: calc(100vh - 96px);
+  position: sticky; top: 16px; flex: none; width: 248px; max-height: calc(100vh - 56px);
   display: flex; flex-direction: column;
   margin: 40px 0 96px; padding: 14px 12px 10px;
   border: 1px solid var(--border); border-radius: 12px; background: var(--bar-bg);
   font-size: .84em;
 }
-.mv-toc-title { margin: 0 4px 8px; font-weight: 700; font-size: .74em; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.mv-toc[hidden] { display: none; }
+.mv-toc-head { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 8px; }
+.mv-toc-title { margin: 0; font-weight: 700; font-size: .74em; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.mv-toc-toggle {
+  border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  border-radius: 6px; width: 22px; height: 22px; line-height: 1; cursor: pointer; font-size: 14px;
+}
+.mv-toc-toggle:hover { color: var(--link); border-color: var(--link); }
+.mv-toc-open {
+  position: sticky; top: 16px; flex: none; align-self: flex-start;
+  margin: 40px 24px 0 0; padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--bar-bg);
+  color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.mv-toc-open[hidden] { display: none; }
+.mv-toc-open:hover { color: var(--link); border-color: var(--link); }
 .mv-toc-search {
   margin: 0 0 8px; padding: 6px 10px; width: 100%;
   border: 1px solid var(--border); border-radius: 8px;
@@ -815,6 +876,7 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 @media (max-width: 900px) {
   .mv-layout { flex-direction: column; gap: 0; }
   .mv-toc { position: static; width: auto; max-height: 190px; margin: 16px 0 0; }
+  .mv-toc-open { position: static; margin: 16px 0 0; align-self: flex-start; }
   .mv-layout .mv-content { padding-top: 16px; }
 }
 .mv-section {

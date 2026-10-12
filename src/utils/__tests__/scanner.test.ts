@@ -56,10 +56,11 @@ describe('scanArtifacts formats', () => {
     expect(found).toMatchObject({ slug: 'doc', format: 'mdx', title: 'Doc' });
   });
 
-  it('prefers html when both html and md exist in the same slug', () => {
+  it('prefers mdx when several entry files exist in the same slug', () => {
     writeArtifact('mixed', 'index.html', '<title>HTML</title>');
     writeArtifact('mixed', 'index.md', '# MD');
-    expect(scanArtifacts(dir).artifacts[0].format).toBe('html');
+    writeArtifact('mixed', 'index.mdx', '# MDX');
+    expect(scanArtifacts(dir).artifacts[0].format).toBe('mdx');
   });
 
   it('ignores directories without an entry file', () => {

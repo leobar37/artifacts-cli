@@ -88,7 +88,7 @@ describe("data components through the artifact server", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
     const body = await res.text();
-    expect(body).toContain("mv-format\">mdx");
+    expect(body).toContain("mv-copy");
     expect(body).toContain('class="mv-data mv-data-src"');
     expect(body).toContain('data-kind="kanban"');
     expect(body).toContain('data-src="tasks.json"');
