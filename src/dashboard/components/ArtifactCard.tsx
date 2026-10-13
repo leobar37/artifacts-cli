@@ -1,17 +1,11 @@
 import type { Artifact } from '../../types/artifact.js';
+import { ChevronRight, FileCode2, FileText } from 'lucide-react';
 
 interface ArtifactCardProps {
   artifact: Artifact;
   onClick: () => void;
   isSelected: boolean;
 }
-
-const typeColors: Record<Artifact['type'], string> = {
-  generic: 'badge-generic',
-  study: 'badge-study',
-  wireframe: 'badge-wireframe',
-  unknown: 'badge-unknown',
-};
 
 const typeLabels: Record<Artifact['type'], string> = {
   generic: 'Generic',
@@ -21,11 +15,12 @@ const typeLabels: Record<Artifact['type'], string> = {
 };
 
 function formatDate(date: Date): string {
+  const edited = new Date(date);
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(date));
+    year: edited.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(edited);
 }
 
 function formatSize(bytes: number): string {
@@ -35,42 +30,32 @@ function formatSize(bytes: number): string {
 }
 
 export function ArtifactCard({ artifact, onClick, isSelected }: ArtifactCardProps) {
+  const format = artifact.format || 'html';
+  const edited = new Date(artifact.modifiedAt);
+  const exactDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(edited);
+  const DocumentIcon = format === 'md' ? FileText : FileCode2;
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className={`
-        group cursor-pointer rounded-xl p-3 transition-all duration-200
-        ${isSelected
-          ? 'bg-panel-raised'
-          : 'hover:bg-panel-hover'
-        }
-      `}
+      aria-label={artifact.title}
+      aria-pressed={isSelected}
+      title={`${artifact.title}\n${typeLabels[artifact.type]} · ${format.toUpperCase()} · ${formatSize(artifact.size)}\nLast edited: ${exactDate}`}
+      className={`group flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${isSelected ? 'border-line bg-panel-hover shadow-[inset_2px_0_0_var(--accent)]' : 'border-transparent hover:bg-panel-raised'}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className={`text-sm font-medium leading-snug line-clamp-2 flex-1 transition-colors ${isSelected ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
+      <span aria-hidden="true" className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-panel-raised ${isSelected ? 'text-accent' : 'text-text-muted'}`}>
+        <DocumentIcon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block line-clamp-2 text-[13px] font-medium leading-5 ${isSelected ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
           {artifact.title}
-        </h3>
-        <span className="flex shrink-0 items-center gap-1.5">
-          {artifact.format && artifact.format !== 'html' && (
-            <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-text-muted">
-              {artifact.format}
-            </span>
-          )}
-          <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${typeColors[artifact.type]}`}>
-            {typeLabels[artifact.type]}
-          </span>
         </span>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between text-[11px] text-text-faint">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1 w-1 rounded-full bg-text-faint"></span>
-          {formatDate(artifact.modifiedAt)}
+        <span className="mt-1.5 flex items-center gap-2 text-[11px] leading-4 text-text-muted">
+          <span className="rounded border border-line bg-panel-raised px-1 font-mono text-[9px] font-medium uppercase tracking-wide">{format}</span>
+          <time dateTime={edited.toISOString()} title={`Last edited: ${exactDate}`}>{formatDate(artifact.modifiedAt)}</time>
         </span>
-        <span className="rounded bg-panel-hover px-1.5 py-0.5 text-text-muted">
-          {formatSize(artifact.size)}
-        </span>
-      </div>
-    </div>
+      </span>
+      <ChevronRight aria-hidden="true" className={`mt-1 h-3.5 w-3.5 shrink-0 transition-opacity ${isSelected ? 'text-accent opacity-100' : 'text-text-muted opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`} />
+    </button>
   );
 }

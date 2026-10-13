@@ -80,3 +80,24 @@ export function previewUrl(
 export function eventsUrl(remoteId: string, projectId: string): string {
   return remoteApiUrl(remoteId, projectId, "/events");
 }
+
+/** A page is a source file within the selected artifact, never a URL or traversal path. */
+export function isArtifactPagePath(page: string): boolean {
+  if (!/\.(mdx?|html)$/.test(page) || /[\\%?#\u0000-\u001f\u007f]/.test(page)) return false;
+  return page.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..') && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(page);
+}
+
+/** Read same-origin iframe navigation without trusting paths outside this artifact's scope. */
+export function getArtifactPagePath(url: string, context: { origin: string; projectId: string; slug: string; remoteId?: string }): string | null {
+  try {
+    const parsed = new URL(url, context.origin);
+    if (parsed.origin !== context.origin) return null;
+    const scope = context.remoteId ? remoteScope(context.remoteId, context.projectId) : context.projectId ? `/p/${encodeURIComponent(context.projectId)}` : '';
+    const prefix = `${scope}/artifacts/${encodeURIComponent(context.slug)}/`;
+    if (!parsed.pathname.startsWith(prefix)) return null;
+    const page = decodeURIComponent(parsed.pathname.slice(prefix.length));
+    return isArtifactPagePath(page) ? page : null;
+  } catch {
+    return null;
+  }
+}

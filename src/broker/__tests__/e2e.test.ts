@@ -368,6 +368,38 @@ describe("broker data plane", () => {
     expect(jsonB.status).toBe(200);
     expect(await jsonB.json()).toEqual(tasksB);
   }, 15000);
+
+  it("keeps card asset references scoped to the selected remote", async () => {
+    const navigation = '<Pages items={[{ title: "Overview", href: "index.mdx" }, { title: "Details", href: "details.mdx" }]} />';
+    const source = [
+      navigation,
+      '',
+      '<Carousel title="Remote cards">',
+      '<Card title="Image" asset="images/cover.svg" />',
+      '<Card title="Details">Remote content.</Card>',
+      '</Carousel>',
+      '',
+    ].join("\n");
+    for (const [dir, label] of [[dirA, "AGENT-A-ASSET"], [dirB, "AGENT-B-ASSET"]] as const) {
+      const folder = join(dir, "docs", "artifacts", "gallery");
+      mkdirSync(join(folder, "images"), { recursive: true });
+      writeFileSync(join(folder, "index.mdx"), source);
+      writeFileSync(join(folder, "images", "cover.svg"), `<svg xmlns="http://www.w3.org/2000/svg"><text>${label}</text></svg>`);
+      writeFileSync(join(folder, "details.mdx"), `${navigation}\n\n# ${label} details\n\n<Card title="Detail" asset="images/cover.svg" />\n`);
+    }
+    for (const [remote, label] of [["remote-a", "AGENT-A-ASSET"], ["remote-b", "AGENT-B-ASSET"]] as const) {
+      const doc = await fetch(`${brokerUrl}/r/${remote}/p/${SHARED_PROJECT}/artifacts/gallery/index.mdx`);
+      expect(doc.status).toBe(200);
+      expect(await doc.text()).toContain('src="images/cover.svg"');
+      const image = await fetch(new URL("images/cover.svg", doc.url));
+      expect(image.status).toBe(200);
+      expect(await image.text()).toContain(label);
+      const chapter = await fetch(new URL("details.mdx", doc.url));
+      expect(chapter.status).toBe(200);
+      expect(await chapter.text()).toContain(`${label} details`);
+      expect(await (await fetch(new URL("images/cover.svg", chapter.url))).text()).toContain(label);
+    }
+  }, 15000);
 });
 
 describe("broker offline lease", () => {

@@ -26,16 +26,12 @@ function useDaemonHealth(): boolean {
   return alive;
 }
 
-type ArtifactType = 'generic' | 'study' | 'wireframe';
-
 interface HeaderProps {
   total: number;
   onRefresh: () => void;
   isLoading: boolean;
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
-  selectedType: ArtifactType | 'all';
-  onSelectType: (type: ArtifactType | 'all') => void;
   projectName?: string;
   projectId: string;
   projects: ProjectEntry[];
@@ -49,14 +45,7 @@ interface HeaderProps {
   backHref?: string;
   backLabel?: string;
 }
-const typeFilters: { value: ArtifactType | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'generic', label: 'Generic' },
-  { value: 'study', label: 'Study' },
-  { value: 'wireframe', label: 'Wireframe' },
-];
-
-export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType, projectName, projectId, projects, remoteName, remoteStatus, remoteId, remotes, onNavigateProject, backHref, backLabel }: HeaderProps) {
+export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, projectName, projectId, projects, remoteId, remotes, onNavigateProject, backHref, backLabel }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const daemonAlive = useDaemonHealth();
 
@@ -67,100 +56,42 @@ export function Header({ total, onRefresh, isLoading, sidebarCollapsed, onToggle
   }, [projectName]);
 
   return (
-    <header className="flex flex-col border-b border-line bg-panel sticky top-0 z-20">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
-          {backHref && (
-            <a
-              href={backHref}
-              className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-text-muted hover:bg-panel-hover hover:text-text-primary transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              {backLabel ?? 'Back'}
-            </a>
-          )}
+    <header className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-line bg-panel">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          {backHref && <a href={backHref} className="flex items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><ChevronLeft className="h-3.5 w-3.5" />{backLabel ?? 'Back'}</a>}
           {sidebarCollapsed && onToggleSidebar && (
-            <button
-              onClick={onToggleSidebar}
-              className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-panel-hover hover:text-text-secondary transition-colors"
-              title="Show sidebar"
-            >
+            <button onClick={onToggleSidebar} className="hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-panel-hover hover:text-text-primary md:flex" title="Show sidebar">
               <PanelLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-            <Package className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-medium text-text-primary">
-              {remoteName ? `${remoteName} / ${projectName || '…'}` : (projectName || 'Artifact CLI')}
-            </h1>
-            <p className="flex items-center gap-2 text-xs text-text-muted">
-              <span>{total} artifact{total !== 1 ? 's' : ''}</span>
-              {remoteStatus && (
-                <span className="font-medium text-text-secondary">{remoteStatus === 'online' ? 'Online' : 'Offline'}</span>
-              )}
-            </p>
-          </div>
-          {remotes && remoteId && (
-            <RemoteSwitcher remoteId={remoteId} remotes={remotes} />
-          )}
-          {projects.length > 1 && (
-            <ProjectSwitcher projectId={projectId} projects={projects} navigate={onNavigateProject} />
-          )}
+          <a href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-label="Artifacts home">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-panel-raised text-accent"><Package className="h-5 w-5" /></span>
+            <span>
+              <h1 className="text-sm font-semibold tracking-tight text-text-primary">Artifacts</h1>
+              <span className="block text-[11px] tabular-nums text-text-muted">{total} artifact{total !== 1 ? 's' : ''}</span>
+            </span>
+          </a>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span
-            title={daemonAlive ? 'Daemon connected' : 'Daemon unreachable'}
-            className={`h-2 w-2 rounded-full ${daemonAlive ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}
-          />
-          <button
-            onClick={toggleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-panel-hover hover:text-text-secondary transition-colors"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </button>
+        <div className="order-3 grid w-full min-w-0 grid-cols-2 gap-2 sm:order-none sm:flex sm:w-auto sm:items-center sm:border-l sm:border-line sm:pl-3">
+          <RemoteSwitcher remoteId={remoteId} remotes={remotes} />
+          <ProjectSwitcher projectId={projectId} projects={projects} navigate={onNavigateProject} />
+        </div>
 
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className={`
-              flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs font-medium transition-colors
-              ${isLoading
-                ? 'cursor-not-allowed opacity-50'
-                : 'text-text-secondary hover:bg-panel-hover hover:text-text-primary'
-              }
-            `}
-          >
+        <div className="ml-auto flex items-center gap-1.5">
+          <span title={daemonAlive ? 'Daemon connected' : 'Daemon unreachable'} className="mr-2 hidden items-center gap-1.5 text-[11px] text-text-muted lg:flex">
+            <span className={`h-1.5 w-1.5 rounded-full ${daemonAlive ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+            {daemonAlive ? 'Connected' : 'Disconnected'}
+          </span>
+          <button onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-panel-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button onClick={onRefresh} disabled={isLoading} className="flex h-8 items-center gap-2 rounded-lg border border-line bg-panel-raised px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-panel-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50" title="Refresh artifacts">
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
-      </div>
-
-      {/* Type Filter Tabs */}
-      <div className="flex gap-1 overflow-x-auto px-4 pb-3">
-        {typeFilters.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => onSelectType(value)}
-            className={`
-              shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors
-              ${selectedType === value
-                ? 'bg-accent text-accent-text'
-                : 'text-text-muted hover:bg-panel-hover hover:text-text-secondary'
-              }
-            `}
-          >
-            {label}
-          </button>
-        ))}
       </div>
     </header>
   );

@@ -10,6 +10,8 @@ import {
   projectBase,
   apiUrl,
   getProjectIdFromPath,
+  getArtifactPagePath,
+  isArtifactPagePath,
 } from "../project.js";
 
 describe("dashboard routes (dual local/broker)", () => {
@@ -35,5 +37,17 @@ describe("dashboard routes (dual local/broker)", () => {
     expect(remoteApiUrl("r1", "p1", "/artifacts")).toBe("/r/r1/p/p1/api/artifacts");
     expect(previewUrl("r1", "p1", "demo", "?v=2")).toBe("/r/r1/p/p1/artifacts/demo/index.html?v=2");
     expect(eventsUrl("r1", "p1")).toBe("/r/r1/p/p1/api/events");
+  });
+
+  it('identifies only source pages inside the current artifact and remote', () => {
+    const origin = 'http://100.83.90.33:5173';
+    const context = { origin, projectId: 'p1', slug: 'demo', remoteId: 'r1' };
+    expect(getArtifactPagePath(`${origin}/r/r1/p/p1/artifacts/demo/details.mdx?theme=light`, context)).toBe('details.mdx');
+    expect(getArtifactPagePath(`${origin}/r/r1/p/p1/artifacts/demo/chapters/part%201.md`, context)).toBe('chapters/part 1.md');
+    expect(getArtifactPagePath(`${origin}/r/r2/p/p1/artifacts/demo/details.mdx`, context)).toBeNull();
+    expect(getArtifactPagePath(`${origin}/r/r1/p/p1/artifacts/other/details.mdx`, context)).toBeNull();
+    expect(getArtifactPagePath('https://example.com/r/r1/p/p1/artifacts/demo/details.mdx', context)).toBeNull();
+    expect(getArtifactPagePath(`${origin}/p/p1/artifacts/demo/details.mdx`, { ...context, remoteId: undefined })).toBe('details.mdx');
+    for (const path of ['../secret.mdx', '/secret.mdx', '%252e%252e/file.mdx', 'javascript:file.mdx', 'data.json', 'image.svg']) expect(isArtifactPagePath(path)).toBe(false);
   });
 });

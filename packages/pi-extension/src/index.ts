@@ -168,7 +168,7 @@ export default function (pi: Pi) {
     name: "artifact_create",
     label: "Artifact Create",
     description:
-      "Save an artifact (MDX document, Markdown, or standalone HTML) outside git and return path + version + shareable dashboard view link. For documents prefer mdx — it renders the same markdown plus Chart/Stats/Callout/Section/Svg/Video/Audio and mermaid when a visual genuinely adds information (real structure for a diagram, REAL data for a chart; never invent numbers, max one diagram per document). Use md only for plain prose with no visuals, html only for standalone interactive pages. Call artifact_capabilities for components and props; props must be literals (inline your data). ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link with the user; never paste the content back.",
+      "Save an artifact (MDX document, Markdown, or standalone HTML) outside git and return path + version + shareable dashboard view link. Prefer mdx for documents: Markdown plus Chart/Stats/Callout/Section/Svg/Card/Cards/Carousel/Table/Pages, media and native inline SVG. Use charts only for verified numeric data; use Svg or native lowercase svg blocks for real architecture/flow diagrams, never invented facts. For large content, keep a concise index.mdx and attach focused sibling pages/assets with artifact_asset, linked by Pages. Call artifact_capabilities for syntax, limits and guidance; props must be literals and native SVG uses quoted XML attributes, not executable JSX. ALWAYS use this tool instead of writing docs/artifacts by hand. Share the view link, not pasted content.",
     parameters: z.object({
       slug: z.string().describe("kebab-case, e.g. auth-summary"),
       title: z.string().describe("Human-readable title"),
@@ -329,7 +329,7 @@ export default function (pi: Pi) {
     name: "artifact_capabilities",
     label: "Artifact Capabilities",
     description:
-      "What the artifact dashboard can render BEFORE you generate one: supported formats (html|md|mdx), the built-in MDX components with props and examples (Chart, Stats, Stat, Callout, Section, Svg, Video, Audio), mermaid fence usage and viewer features. Call this before writing an mdx artifact; unknown components render as placeholders, and props must be literals (inline your data).",
+      "Discover supported formats and MDX components BEFORE authoring: Chart, Stats, Stat, Callout, Section, Svg, Card, Cards, Carousel, Table, Pages, media and JSON-backed views, with props/examples. Also returns native inline SVG syntax/safety/limits, graphic layout guidance and multi-page organization patterns. Call this before writing an mdx artifact; props are literals, SVG is static XML, and unknown components render as placeholders.",
     parameters: z.object({}),
     async execute(_id, _params, _signal, _onUpdate, _ctx) {
       const caps = getViewerCapabilities();

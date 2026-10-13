@@ -145,6 +145,51 @@ describe("data components through the artifact server", () => {
     expect(profile.entries.length).toBeGreaterThan(0);
   });
 
+  it("serves cards, tables and carousel assets through the versioned store workflow", async () => {
+    const navigation = '<Pages title="Gallery pages" items={[{ title: "Overview", href: "index.mdx" }, { title: "Details", href: "details.mdx" }]} />';
+    const source = [
+      navigation,
+      '',
+      '<Carousel title="Assets">',
+      '<Card title="Diagram" asset="images/cover.svg" alt="Release diagram" />',
+      '<Card title="Notes" asset="notes.txt" />',
+      '</Carousel>',
+      '',
+      '<Table title="Files" columns={["Name", "Type"]} rows={[["cover.svg", "Image"]]} />',
+      '',
+    ].join("\n");
+    const store = new LocalStore();
+    store.put(projectDir, { slug: "gallery", title: "Gallery", format: "mdx", content: source });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect width="100" height="60" fill="#58a6ff"/></svg>';
+    store.putAsset(projectDir, "gallery", "images/cover.svg", Buffer.from(svg));
+    store.putAsset(projectDir, "gallery", "notes.txt", Buffer.from("Release notes"));
+    const details = `${navigation}\n\n# Gallery details\n\n<Card title="Detail image" asset="images/cover.svg" />\n`;
+    store.putAsset(projectDir, "gallery", "details.mdx", Buffer.from(details));
+    const doc = await fetch(docUrl("gallery"));
+    expect(doc.status).toBe(200);
+    const page = await doc.text();
+    expect(page).toContain('class="mv-carousel"');
+    expect(page).toContain('class="mv-card"');
+    expect(page).toContain('src="images/cover.svg"');
+    expect(page).toContain('href="notes.txt"');
+    expect(page).toContain('class="mv-table"');
+    expect(page).toContain("mvBootCarousels");
+    expect(page).toContain('href="details.mdx"');
+    const chapter = await fetch(new URL("details.mdx", doc.url));
+    expect(chapter.status).toBe(200);
+    const chapterBody = await chapter.text();
+    expect(chapterBody).toContain("Gallery details");
+    expect(chapterBody).toContain('class="mv-pages"');
+    expect(chapterBody).toContain('src="images/cover.svg"');
+    expect(await (await fetch(new URL("images/cover.svg", chapter.url))).text()).toBe(svg);
+    const image = await fetch(new URL("images/cover.svg", doc.url));
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await image.text()).toBe(svg);
+    expect(await (await fetch(new URL("notes.txt", doc.url))).text()).toBe("Release notes");
+    expect(await (await fetch(`${docUrl("gallery")}?raw=1`)).text()).toBe(source);
+  });
+
   it("keeps the malformed-JSON error contract reachable for the client", async () => {
     // Broken sibling + a sub-route document referencing it (folder standard).
     const docsDir = join(projectDir, "docs", "artifacts", "plan-overview");

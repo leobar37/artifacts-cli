@@ -3,6 +3,9 @@ import { createRequire } from "node:module";
 import { Marked, type Tokens } from "marked";
 import hljs from "highlight.js/lib/common";
 import { findJsxBlock, parseJsxProps, renderMdxComponent, slugifyHeading, EXPAND_BUTTON, type JsxBlock } from "./mdx-components.js";
+import { CAROUSEL_BOOT_SCRIPT } from "./carousel-runtime.js";
+import { PAGES_BOOT_SCRIPT } from "./pages-runtime.js";
+import { replaceInlineSvgBlocks, findInlineSvgEnd } from "./inline-svg.js";
 
 export type ViewerTheme = "dark" | "light";
 
@@ -27,8 +30,8 @@ export interface MarkdownViewerOptions {
  * - YAML frontmatter is stripped (its title feeds the scanner, not the body).
  * - MDX module-level `import`/`export` statements are hidden: they are
  *   compile-time metadata, not content. Built-in components (Chart, Stats,
- *   Callout, Section, Svg, Video, Audio, Webframe) render for real when
- *   props are literals; unknown components become visible placeholders;
+ *   Callout, Section, Svg, Video, Audio, Webframe, Card, Cards, Carousel, Table)
+ *   render for real when props are literals; unknown components become visible placeholders;
  *   lowercase HTML passes through untouched.
  */
 export function renderMarkdownViewer(source: string, options: MarkdownViewerOptions): string {
@@ -43,6 +46,8 @@ export function renderMarkdownViewer(source: string, options: MarkdownViewerOpti
   const mermaidScript = anchored.includes('class="mv-mermaid"') ? mermaidBootScript() : "";
   const graphScript = anchored.includes('class="mv-graph') ? graphBootScript() : "";
   const dataScript = anchored.includes('class="mv-data mv-data-src"') ? dataBootScript() : "";
+  const carouselScript = anchored.includes('class="mv-carousel"') ? CAROUSEL_BOOT_SCRIPT : "";
+  const pagesScript = anchored.includes('class="mv-pages"') ? PAGES_BOOT_SCRIPT : "";
   const content = withToc
     ? `<div class="mv-layout"><nav class="mv-toc" aria-label="Secciones"><div class="mv-toc-head"><p class="mv-toc-title">Secciones</p><button class="mv-toc-toggle" type="button" title="Ocultar secciones" aria-label="Ocultar secciones">‹</button></div><input class="mv-toc-search" type="search" placeholder="Filtrar secciones…" aria-label="Filtrar secciones" autocomplete="off"><ul>${toc
         .map((e) => `<li class="mv-toc-l${e.level}"><a href="#${e.id}">${escapeHtml(e.text)}</a></li>`)
@@ -64,6 +69,8 @@ ${copyBootScript()}
 ${mermaidScript}
 ${graphScript}
 ${dataScript}
+${carouselScript}
+${pagesScript}
 </body>
 </html>`;
 }
@@ -238,15 +245,28 @@ function graphBootScript(): string {
   return `<script>
 (function () {
   function close() {
-    var open = document.querySelector(".mv-graph.open");
-    if (open) open.classList.remove("open");
+    var open = document.querySelector("figure.mv-graph.open");
+    if (open) {
+      open.classList.remove("open");
+      var button = open.querySelector("button.mv-expand");
+      if (button) { button.setAttribute("aria-label", "Ampliar gráfico"); button.setAttribute("aria-expanded", "false"); button.title = "Ampliar"; button.focus(); }
+    }
     document.body.classList.remove("mv-lock");
   }
   document.addEventListener("click", function (e) {
-    var btn = e.target && e.target.closest ? e.target.closest(".mv-expand") : null;
+    var btn = e.target && e.target.closest ? e.target.closest("button.mv-expand") : null;
     if (btn) {
-      var fig = btn.closest(".mv-graph");
-      if (fig) { fig.classList.add("open"); document.body.classList.add("mv-lock"); }
+      var fig = btn.closest("figure.mv-graph");
+      if (fig && fig.classList.contains("open")) close();
+      else if (fig) {
+        close();
+        fig.classList.add("open");
+        document.body.classList.add("mv-lock");
+        btn.setAttribute("aria-label", "Cerrar gráfico");
+        btn.setAttribute("aria-expanded", "true");
+        btn.title = "Cerrar";
+        btn.focus();
+      }
       return;
     }
     if (e.target && e.target.classList && e.target.classList.contains("mv-graph")
@@ -629,14 +649,43 @@ marked.use({
  * disappears silently. Runs outside fenced code blocks only.
  */
 function prepareMdx(source: string): string {
-  const segments = source.split(/(```[\s\S]*?(?:```|$))/g);
-  return segments
-    .map((segment, i) => (i % 2 === 1 ? segment : enhanceMdxSegment(segment)))
-    .join("");
+  const lines = source.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+  let output = "";
+  let prose = "";
+  let fence: { character: string; length: number } | null = null;
+  let offset = 0;
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const start = offset;
+    offset += line.length;
+    // SVG is one atomic XML block: fence-looking label/CDATA lines cannot escape sanitization.
+    if (!fence && /^[ \t]*<svg(?=[\s/>])/.test(line)) {
+      const end = findInlineSvgEnd(source, start + line.indexOf("<"));
+      if (end === null) { prose += source.slice(start); break; }
+      prose += line;
+      while (offset < end && index + 1 < lines.length) {
+        const next = lines[++index];
+        prose += next;
+        offset += next.length;
+      }
+      continue;
+    }
+    const marker = line.match(/^[ \t]*(`{3,}|~{3,})([^\r\n]*)\r?\n?$/);
+    if (fence) {
+      output += line;
+      if (marker && marker[1][0] === fence.character && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+    } else if (marker && (marker[1][0] !== "`" || !marker[2].includes("`"))) {
+      output += enhanceMdxSegment(prose) + line;
+      prose = "";
+      fence = { character: marker[1][0], length: marker[1].length };
+    } else prose += line;
+  }
+  return output + enhanceMdxSegment(prose);
 }
 
 function enhanceMdxSegment(segment: string): string {
-  const withoutComments = segment.replace(/\{\/\*[\s\S]*?\*\/\}/g, "<!-- mdx comment -->");
+  const withSvg = replaceInlineSvgBlocks(segment, EXPAND_BUTTON);
+  const withoutComments = withSvg.replace(/\{\/\*[\s\S]*?\*\/\}/g, "<!-- mdx comment -->");
   const withoutModuleCode = withoutComments.replace(
     /^[ \t]*(?:import|export)\b[^\n]*$/gm,
     () => "<!-- mdx module statement -->",
@@ -715,10 +764,10 @@ function baseCss(theme: ViewerTheme): string {
 * { box-sizing: border-box; }
 body {
   margin: 0; background: var(--bg); color: var(--fg);
-  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.mv-content { max-width: 780px; margin: 0 auto; padding: 40px 24px 96px; }
+.mv-content { max-width: 780px; margin: 0 auto; padding: 40px 20px 64px; }
 .mv-copy {
   position: fixed; right: 16px; bottom: 16px; z-index: 50;
   padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
@@ -727,12 +776,12 @@ body {
 }
 .mv-copy:hover { color: var(--link); border-color: var(--link); }
 .mv-content > :first-child { margin-top: 0; }
-h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 1.6em 0 .6em; font-weight: 650; }
-h1 { font-size: 1.9em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
-h2 { font-size: 1.45em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
-h3 { font-size: 1.2em; } h4 { font-size: 1em; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 1.15em 0 .45em; font-weight: 650; }
+h1 { font-size: 1.65em; padding-bottom: .25em; border-bottom: 1px solid var(--border); }
+h2 { font-size: 1.25em; padding-bottom: .25em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.1em; } h4 { font-size: 1em; }
 a { color: var(--link); }
-p { margin: .8em 0; }
+p { margin: .6em 0; }
 ul, ol { padding-left: 1.6em; }
 li + li { margin-top: .25em; }
 li > input[type="checkbox"] { margin-right: .45em; }
@@ -761,6 +810,65 @@ video { max-width: 100%; }
 .mv-audio { display: block; width: 100%; }
 .mv-media--audio { padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg); }
 .mv-media-cap { display: block; margin-top: .4em; font-size: .85em; color: var(--muted); }
+/* Collection components share the document palette, not dashboard CSS or CDN dependencies. */
+.mv-card { min-width: 0; margin: .9em 0; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--bar-bg); }
+.mv-card-content { padding: 12px; overflow-wrap: anywhere; }
+.mv-card-title { margin: 0 0 .3em; font-size: 1em; line-height: 1.4; }
+.mv-card-subtitle { margin: 0 0 .4em; font-size: .85em; color: var(--muted); }
+.mv-card-body > :first-child { margin-top: 0; }
+.mv-card-body > :last-child { margin-bottom: 0; }
+.mv-card-media { background: var(--code-bg); border-bottom: 1px solid var(--border); }
+.mv-card-media img, .mv-card-media video { display: block; width: 100%; max-height: 180px; object-fit: contain; }
+.mv-card-media--audio, .mv-card-media--file { padding: 10px 12px; }
+.mv-card-media audio { display: block; width: 100%; }
+.mv-card-file { overflow-wrap: anywhere; }
+.mv-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; align-items: stretch; margin: 1em 0; }
+.mv-cards--columns { grid-template-columns: repeat(var(--card-columns), minmax(0, 1fr)); }
+.mv-cards > .mv-card { margin: 0; }
+.mv-carousel { min-width: 0; margin: 1em 0; }
+.mv-carousel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.mv-carousel-title { margin: 0; font-size: .9em; font-weight: 650; }
+.mv-carousel-controls { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.mv-carousel-controls[hidden] { display: none; }
+.mv-carousel-controls button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bar-bg); color: var(--fg); font-size: 20px; cursor: pointer; }
+.mv-carousel-controls button:hover:not(:disabled) { border-color: var(--link); color: var(--link); }
+.mv-carousel-controls button:disabled { opacity: .4; cursor: default; }
+.mv-carousel-controls span { min-width: 4em; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.mv-carousel-track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - (var(--carousel-per-view, 1) - 1) * 10px) / var(--carousel-per-view, 1)); gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+.mv-carousel-track > * { min-width: 0; margin: 0; scroll-snap-align: start; }
+.mv-carousel-track:focus-visible, .mv-carousel-controls button:focus-visible, .mv-table-scroll:focus-visible, .mv-card a:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 8px; }
+.mv-table-scroll { max-width: 100%; overflow-x: auto; margin: 1em 0; border: 1px solid var(--border); border-radius: 8px; }
+.mv-table-scroll table { display: table; width: 100%; margin: 0; }
+.mv-table caption { padding: 6px 10px; text-align: left; font-size: .9em; font-weight: 650; background: var(--bar-bg); }
+.mv-table th, .mv-table td { border: 0; border-bottom: 1px solid var(--border); padding: 6px 10px; }
+.mv-table th { white-space: nowrap; }
+.mv-table tr:last-child td { border-bottom: 0; }
+.mv-table-left { text-align: left; }
+.mv-table-center { text-align: center; }
+.mv-table-right { text-align: right; font-variant-numeric: tabular-nums; }
+.mv-table-empty { text-align: center; color: var(--muted); }
+.mv-pages { margin: .9em 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bar-bg); }
+.mv-pages-title { margin: 0 0 8px; font-size: 1em; font-weight: 650; }
+.mv-pages-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mv-pages-items > li { flex: 1 1 140px; margin: 0; min-width: 0; }
+.mv-pages-items a { display: flex; gap: 8px; height: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
+.mv-pages-items a:hover, .mv-pages-items a[aria-current="page"] { border-color: var(--link); background: var(--badge-bg); }
+.mv-pages-items a:focus-visible, .mv-pages-steps a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.mv-pages-number { color: var(--muted); font-size: .85em; font-variant-numeric: tabular-nums; }
+.mv-pages-label { display: block; font-size: 1em; font-weight: 600; }
+.mv-pages-description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; color: var(--muted); font-size: .85em; }
+.mv-pages-steps { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; }
+.mv-pages-steps[hidden] { display: none; }
+.mv-pages-steps span { color: var(--muted); }
+@media (max-width: 600px) {
+  .mv-cards { grid-template-columns: 1fr; }
+  .mv-carousel-track { grid-auto-columns: 100%; }
+  .mv-carousel-controls button { width: 44px; height: 44px; }
+  .mv-pages-items > li { flex-basis: 90px; }
+  .mv-pages-number { display: none; }
+  .mv-pages-items a { min-height: 44px; }
+  .mv-pages-steps a { display: inline-flex; min-height: 44px; align-items: center; }
+}
 mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding: 0 3px; }
 .mv-comp {
   margin: 1.2em 0; padding: 10px 14px; border: 1px dashed var(--border);
@@ -824,15 +932,15 @@ mark { background: var(--mark-bg); color: var(--fg); border-radius: 3px; padding
 }
 h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-anchor:hover { color: var(--link); }
-.mv-layout { display: flex; gap: 32px; max-width: 1120px; margin: 0 auto; padding: 0 24px; align-items: flex-start; }
+.mv-layout { display: flex; gap: 20px; max-width: 1040px; margin: 0 auto; padding: 0 20px; align-items: flex-start; }
 .mv-layout .mv-content { flex: 1; min-width: 0; max-width: 780px; margin: 0; padding-left: 0; padding-right: 0; }
 .mv-layout.toc-hidden { gap: 0; }
 .mv-toc {
-  position: sticky; top: 16px; flex: none; width: 248px; max-height: calc(100vh - 56px);
+  position: sticky; top: 16px; flex: none; width: 200px; max-height: calc(100vh - 56px);
   display: flex; flex-direction: column;
-  margin: 40px 0 96px; padding: 14px 12px 10px;
+  margin: 40px 0 64px; padding: 10px;
   border: 1px solid var(--border); border-radius: 12px; background: var(--bar-bg);
-  font-size: .84em;
+  font-size: 13px;
 }
 .mv-toc[hidden] { display: none; }
 .mv-toc-head { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 8px; }
@@ -844,7 +952,7 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-toc-toggle:hover { color: var(--link); border-color: var(--link); }
 .mv-toc-open {
   position: sticky; top: 16px; flex: none; align-self: flex-start;
-  margin: 40px 24px 0 0; padding: 6px 12px;
+  margin: 40px 16px 0 0; padding: 4px 10px;
   border: 1px solid var(--border); border-radius: 999px; background: var(--bar-bg);
   color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
 }
@@ -877,7 +985,7 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
   .mv-layout { flex-direction: column; gap: 0; }
   .mv-toc { position: static; width: auto; max-height: 190px; margin: 16px 0 0; }
   .mv-toc-open { position: static; margin: 16px 0 0; align-self: flex-start; }
-  .mv-layout .mv-content { padding-top: 16px; }
+  .mv-layout .mv-content { padding-top: 12px; }
 }
 .mv-section {
   margin: 1.6em 0; padding: 16px 20px; border: 1px solid var(--border);
@@ -887,8 +995,8 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-section-sub { margin: -.3em 0 .8em; color: var(--muted); font-size: .92em; }
 .mv-section-body > :last-child { margin-bottom: 0; }
 .mv-svg { margin: 1.4em 0; overflow-x: auto; }
-.mv-svg svg { display: block; width: 100%; height: auto; }
-.mv-svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+.mv-svg:not(.mv-svg-inline) svg, .mv-svg-inline > svg { display: block; width: 100%; height: auto; }
+.mv-svg:not(.mv-svg-inline) text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
 .mv-svg-label { fill: var(--fg); font-size: 13px; font-weight: 600; }
 .mv-svg-sub { fill: var(--muted); font-size: 11px; }
 .mv-svg-tag { fill: var(--muted); font-size: 11px; }
@@ -909,7 +1017,9 @@ h1:hover .mv-anchor, h2:hover .mv-anchor, h3:hover .mv-anchor { opacity: 1; }
 .mv-graph.open .mv-expand { opacity: 1; top: 12px; right: 12px; }
 .mv-graph.open .mv-expand span { display: none; }
 .mv-graph.open .mv-expand::after { content: "✕"; }
-.mv-graph.open svg { width: 100% !important; max-width: 1100px !important; height: auto !important; margin: 0 auto; }
+.mv-graph.open:not(.mv-svg-inline) svg, .mv-svg-inline.open > svg { width: 100% !important; max-width: 1100px !important; height: auto !important; margin: 0 auto; }
+.mv-svg-inline.open > svg { width: max(100%, var(--svg-native-width)) !important; max-width: none !important; }
+.mv-svg-inline.open .mv-expand { position: sticky; top: 0; left: calc(100% - 28px); right: auto; margin-left: auto; z-index: 2; }
 body.mv-lock { overflow: hidden; }
 @media (max-width: 900px) {
   .mv-expand { opacity: 1; }

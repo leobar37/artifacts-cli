@@ -32,7 +32,8 @@ export default defineConfig({
         target: `http://localhost:${process.env.ARTIFACT_API_PORT || 7000}`,
         changeOrigin: true,
       },
-      "/p": {
+      // Vite owns local/broker dashboard pages; only scoped data and previews use the backend.
+      "^/(?:r/[^/]+/)?p/[^/]+/(?:api|artifacts)(?:/|\\?|$)": {
         target: `http://localhost:${process.env.ARTIFACT_API_PORT || 7000}`,
         changeOrigin: true,
       },

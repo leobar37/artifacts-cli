@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 import { ProjectDashboard } from "../App.js";
 import { Overview } from "../components/Overview.js";
 import { Header } from "../components/Header.js";
@@ -117,8 +117,6 @@ describe("Header back navigation", () => {
         total={3}
         onRefresh={() => {}}
         isLoading={false}
-        selectedType="all"
-        onSelectType={() => {}}
         projectId="p1"
         projects={[PROJECT]}
         projectName="demo"
@@ -127,7 +125,17 @@ describe("Header back navigation", () => {
         backLabel="All remotes"
       />,
     );
-    const link = document.querySelector('a[href="/"]');
-    expect(link?.textContent).toContain("All remotes");
+    const link = screen.getByRole("link", { name: "All remotes" });
+    expect(link.getAttribute("href")).toBe("/");
+  });
+
+  it("keeps both scope selectors visible even for a single local project", () => {
+    stubBrowserApis();
+    render(<Header total={3} onRefresh={() => {}} isLoading={false} projectId={PROJECT.projectId} projects={[PROJECT]} />);
+    expect(screen.getByTitle("Switch remote")).toBeTruthy();
+    expect(screen.getByTitle("Switch project")).toBeTruthy();
+    expect(screen.getByText("This machine")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "All" })).toBeNull();
+    expect(document.querySelector('[aria-label="Filter artifacts by type"]')).toBeNull();
   });
 });

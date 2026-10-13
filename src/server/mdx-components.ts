@@ -26,6 +26,7 @@ import {
   type DataViewKind,
 } from "./data-components.js";
 import { isSafeSrc } from "./data-contracts.js";
+import { renderCard, renderCards, renderCarousel, renderTable, renderPages } from "./collection-components.js";
 
 /**
  * Built-in MDX component runtime for the markdown viewer.
@@ -494,6 +495,16 @@ function renderDataView(tag: string, p: JsxProps): string {
  */
 export function renderMdxComponent(tag: string, props: JsxProps, childrenHtml: string): string | null {
   switch (tag) {
+    case "Card":
+      return renderCard(props, childrenHtml);
+    case "Cards":
+      return renderCards(props, childrenHtml);
+    case "Carousel":
+      return renderCarousel(props, childrenHtml);
+    case "Table":
+      return renderTable(props, childrenHtml);
+    case "Pages":
+      return renderPages(props);
     case "Chart":
       return renderChart(props);
     case "Callout":
@@ -575,7 +586,7 @@ let svgCounter = 0;
  * markdown-viewer.ts — keep the class in sync.
  */
 export const EXPAND_BUTTON =
-  `<button class="mv-expand" type="button" aria-label="Ampliar gráfico" title="Ampliar"><span aria-hidden="true">⤢</span></button>`;
+  `<button class="mv-expand" type="button" aria-label="Ampliar gráfico" aria-expanded="false" title="Ampliar"><span aria-hidden="true">⤢</span></button>`;
 
 function renderSvg(p: JsxProps): string | null {
   const shapes = p.shapes;

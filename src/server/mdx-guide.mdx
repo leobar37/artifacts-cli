@@ -15,8 +15,8 @@ booleans, JSON arrays/objects) — the viewer executes no code, so inline your
 data instead of referencing variables.
 
 <Callout type="info" title="Rule of thumb">
-Documents, reports, notes → plain `.md`. Documents that need **charts,
-KPIs, sections or declarative graphics** → `.mdx` with the components below.
+Documents, reports, notes → `.mdx` (plain Markdown still works). Add **charts,
+cards, carousels, tables, KPIs or sections** only when they help explain the content.
 </Callout>
 
 <Callout type="warning" title="Relevance filter — apply before any visual">
@@ -27,6 +27,25 @@ One diagram per document, and if the text has to explain the visual, drop
 the visual.
 </Callout>
 
+## Choosing the right graphic
+
+| Question | Use | Why |
+| --- | --- | --- |
+| Compare measured values across categories | `Chart type="bar"` | makes magnitudes comparable |
+| Show a measured trend over time | `Chart type="line"` or `area` | order the data chronologically |
+| Explain a few boxes, steps or relations | `Svg shapes={[...]}` | simple, theme-aware declarative graphics |
+| Explain a detailed architecture like people → application → source system | inline `<svg>…</svg>` | full control over groups, paths, markers and multiline text |
+| Readers need exact values or many fields | `Table` / Markdown table | easier to inspect precisely |
+
+**For agents:** start from facts in the task, repository or supplied reference.
+Name the nodes and relationships before drawing. Do not invent architecture,
+numbers, capabilities or integrations to make a diagram look complete.
+Keep the overview short and move detailed graphics to a dedicated `Pages`
+chapter when they make the entry page too dense.
+
+The datasets below are **illustrative documentation examples**, not business
+metrics. Replace them with verified data when authoring a real artifact.
+
 ## Charts — `Chart` (rendered with recharts)
 
 `type` is one of `bar` (default), `line`, `area` or `pie`. `data` is an array
@@ -35,14 +54,14 @@ the series (or pass `series: ["key", ...]` to pick them).
 
 <Chart
   type="bar"
-  title="Revenue by quarter (k USD)"
+  title="Illustrative revenue and costs by quarter (k USD)"
   data={[
-    { name: "Q1", mrr: 12.0, churn: 2.1 },
-    { name: "Q2", mrr: 12.8, churn: 1.9 },
-    { name: "Q3", mrr: 14.9, churn: 1.4 },
-    { name: "Q4", mrr: 16.2, churn: 1.1 },
+    { name: "Q1", revenue: 12.0, costs: 2.1 },
+    { name: "Q2", revenue: 12.8, costs: 1.9 },
+    { name: "Q3", revenue: 14.9, costs: 1.4 },
+    { name: "Q4", revenue: 16.2, costs: 1.1 },
   ]}
-  series={["mrr", "churn"]}
+  series={["revenue", "costs"]}
 />
 
 Line charts for trends:
@@ -91,6 +110,22 @@ Pie for shares (the first numeric key is the value):
 Charts are **static server-side renders** (no hover tooltips) and follow the
 dashboard theme automatically. Hover any chart for its **⤢ expand button**
 to see it full-viewport.
+
+### Authoring a numerical chart
+
+1. Use one object per row and **finite numbers**, not formatted strings
+   such as `"12k"` or `"40%"`. Put units and context in the title.
+2. Select the category/time key with `x="key"` (default `"name"`).
+   The renderer preserves input order; sort dates before writing the data.
+3. Select numeric keys with `series={["key", ...]}`. Without it the first
+   row's numeric keys are inferred, up to four by default. Prefer 1–4 series
+   and separate incompatible units rather than plotting currency and rates
+   on the same axis.
+4. `height={240}` is optional, 160–480 pixels. Charts are static inline SVG,
+   not an interactive chart application; the expand button exposes detail.
+5. Props are literal data. `data={someVariable}`, callbacks and imported
+   chart components are not evaluated by this viewer.
+
 
 ## KPIs — `Stats` + `Stat`
 
@@ -163,9 +198,9 @@ document.
 
 ## Declarative SVG graphics — `Svg`
 
-When a mermaid diagram is too much (or not the right shape), describe a
-small vector graphic as **literal data** — no hand-written `<svg>`
-markup, no code. You declare `shapes`, the viewer draws them:
+For a simple diagram, describe boxes, circles, arrows and text as
+**literal data**. For more detailed layouts, use the native inline SVG
+section below. Neither mode evaluates authored JavaScript.
 
 <Svg
   title="Vende · Cobra · Controla"
@@ -225,6 +260,224 @@ A second pattern — milestones joined by a dashed connector:
 
 Same relevance filter as charts: a graphic must show real structure from
 the document — never invent content to justify one.
+
+## Native inline SVG — architecture diagrams
+
+Place a lowercase `<svg>` block directly in MDX, **not in a code fence**.
+It is rendered as a responsive, expandable vector graphic, including
+inside `Card` or `Section`. Blank lines inside the SVG remain XML, not
+Markdown paragraphs. This is a simplified three-lane architecture pattern:
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 380" role="img" aria-labelledby="architecture-title architecture-desc" font-family="system-ui, sans-serif">
+  <title id="architecture-title">People, application and source system</title>
+  <desc id="architecture-desc">Users interact with an application; its backend talks to a source system that owns the business state and returns events.</desc>
+  <defs>
+    <marker id="architecture-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 1 L9 5 L0 9 Z" fill="var(--muted)" />
+    </marker>
+  </defs>
+
+  <g fill="var(--code-bg)" stroke="var(--border)" stroke-width="1.5">
+    <rect x="20" y="55" width="185" height="90" rx="12" />
+    <rect x="20" y="205" width="185" height="90" rx="12" />
+    <rect x="300" y="25" width="325" height="280" rx="16" />
+    <rect x="320" y="85" width="285" height="65" rx="10" />
+    <rect x="320" y="185" width="285" height="90" rx="10" />
+    <rect x="740" y="25" width="200" height="280" rx="16" />
+    <rect x="758" y="85" width="164" height="65" rx="10" />
+    <rect x="758" y="185" width="164" height="75" rx="10" />
+  </g>
+  <g fill="var(--fg)" text-anchor="middle" font-size="16">
+    <text x="112" y="88" font-weight="700">User / partner</text>
+    <text x="112" y="112" font-size="14">uses the application</text>
+    <text x="112" y="238" font-weight="700">Customer</text>
+    <text x="112" y="262" font-size="14">referred through a link</text>
+    <text x="462" y="55" font-size="18" font-weight="700">APPLICATION</text>
+    <text x="462" y="110" font-weight="700">UI / SDK</text>
+    <text x="462" y="132" font-size="14">interaction and contracts</text>
+    <text x="462" y="215" font-weight="700">Backend</text>
+    <text x="462" y="238" font-size="14"><tspan x="462">Business rules</tspan><tspan x="462" dy="22">Reconciliation</tspan></text>
+    <text x="840" y="55" font-size="16" font-weight="700">SOURCE SYSTEM</text>
+    <text x="840" y="110" font-weight="700">API / adapter</text>
+    <text x="840" y="132" font-size="14">source of truth</text>
+    <text x="840" y="215" font-weight="700">Data / events</text>
+    <text x="840" y="238" font-size="14">business state</text>
+  </g>
+  <g fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#architecture-arrow)">
+    <path d="M205 100 L315 115" />
+    <path d="M605 205 C670 205 670 115 755 115" />
+    <path d="M755 248 H610" />
+    <path d="M205 250 H240 V330 H722 V252 H755" stroke-dasharray="6 4" />
+  </g>
+  <g fill="var(--muted)" font-size="14" text-anchor="middle">
+    <text x="252" y="91">uses</text>
+    <text x="678" y="160">server → server</text>
+    <text x="678" y="237">events</text>
+    <text x="480" y="355">direct action in the source system</text>
+  </g>
+</svg>
+
+### Layout checklist for an architecture diagram
+
+- Group actors, application layers and external systems into clear lanes.
+  Label which system owns the truth; distinguish current facts from planned work.
+- Lay out boxes first, then attach arrows at their edges. Use routed
+  `<path>` curves/segments so arrows do not cross node titles or descriptions.
+- Use `<g>` for shared presentation and `<tspan x="..." dy="...">` for
+  multiline labels. Use short labels instead of shrinking text excessively.
+- Prefer a 960–1,200 unit-wide `viewBox` for three lanes and 16–20 unit
+  text. Use `<title>`, `<desc>` and `aria-labelledby` for accessibility.
+- Define arrowheads/gradients once in `<defs>` and reference them with
+  `url(#id)`. IDs and local references are namespaced per graphic, so
+  multiple diagrams can reuse the same starter template safely.
+- Use `var(--fg)`, `var(--muted)`, `var(--border)` and `var(--code-bg)` to
+  follow the document theme. Use color and line styles consistently, with
+  textual labels rather than color-only meaning.
+- Expand a large SVG to read it at its natural canvas width and scroll
+  horizontally if needed. Close with the same button, Escape or the backdrop.
+
+Minimal starter (shown as code; remove the fence to render it):
+
+```mdx
+<svg viewBox="0 0 640 180" role="img" aria-labelledby="graphic-title">
+  <title id="graphic-title">A source-backed diagram</title>
+  <rect x="20" y="30" width="260" height="100" rx="12" fill="var(--code-bg)" stroke="var(--border)" />
+  <text x="150" y="88" text-anchor="middle" font-size="18" fill="var(--fg)">Verified fact</text>
+</svg>
+```
+
+**Literal XML contract:** use quoted attributes and standard SVG names
+such as `viewBox`, `stroke-width` and `marker-end`. String-valued aliases
+such as `strokeWidth="2"` are normalized, but `width={value}`,
+`style={{...}}`, callbacks and imported JSX are not executed.
+Static groups, shapes, paths, markers, gradients, clipping, masks, text and
+sibling asset/page references are supported. Scripts, event handlers,
+`foreignObject`, stylesheet blocks, animation and remote resource references
+are removed. DTDs/entities, malformed XML and invalid/oversized canvases fail
+visibly. Limits: 512 KiB, 2,048 elements, 40 nesting levels, and a positive
+`viewBox` width/height up to 4,096.
+
+`<use>` may reuse a local primitive shape (`path`, `rect`, `circle`,
+`ellipse`, `line`, `polyline` or `polygon`) with no element children.
+Expand group/symbol or recursive references into explicit geometry instead;
+this prevents small inputs from multiplying into huge render trees.
+
+## Multi-page artifacts — `Pages`
+
+An artifact can contain several source pages. Keep `index.mdx` as the entry
+and split large content by **coherent topic**, not arbitrary page length:
+
+```text
+docs/artifacts/product-guide/
+├── index.mdx        # concise overview and page map
+├── details.mdx      # detailed chapter
+├── appendix.mdx     # references, large tables or supporting material
+└── images/
+    └── cover.webp   # assets referenced by cards on any sibling page
+```
+
+Put the same literal navigation map on each page:
+
+```mdx
+<Pages
+  title="Product guide"
+  items={[
+    { title: "Overview", href: "index.mdx", description: "Start here" },
+    { title: "Details", href: "details.mdx", description: "The complete workflow" },
+    { title: "Appendix", href: "appendix.mdx", description: "Data and references" },
+  ]}
+/>
+```
+
+Links open the target page **inside the preview**, keeping the same artifact
+and remote. The active page is highlighted; previous/next controls follow
+the declared order. Native links remain usable without JavaScript. The
+selected light/dark theme follows page navigation.
+
+**For agents:** outline the information first; give each page a clear
+heading and a useful boundary. Keep the overview short, move detailed
+topics and appendices to named sibling `.mdx` pages, and repeat `Pages`
+navigation so readers can return or move on. Prefer flat sibling page
+names; asset paths such as `images/cover.webp` then resolve consistently.
+
+Use `artifact_create` / `artifact_update` for the **versioned entry**, and
+`artifact_asset` for sibling page files and supporting assets. Sibling
+pages/assets use stable filenames and are **not independently versioned**.
+`Pages` creates navigation, not page files: every linked source must exist.
+`items` accepts 1–50 unique `{ title, href, description? }` entries. Page
+links must be relative `.mdx`, `.md` or `.html` paths; unsafe paths fail
+visibly.
+
+After navigating, **Copy for agent** identifies the current page's source
+and preview URL while retaining the entry source reference.
+
+## Cards and assets — `Card` + `Cards`
+
+Use `Card` for a title, optional subtitle, and **Markdown children**. `Cards`
+arranges cards in an auto-fitting grid; optional `columns={1..4}` fixes the
+desktop count. Mobile always stacks cards.
+
+<Cards columns={2}>
+  <Card title="Artifact source" subtitle="Keep the source editable">
+    Write the content in **MDX** and reference sibling assets by name.
+  </Card>
+  <Card title="Wireframe asset" asset="frame-demo.html" assetType="file">
+    This card references the same demo asset used by the guide's Webframe.
+  </Card>
+</Cards>
+
+Attach an asset with `artifact_asset`, then reference its name:
+
+```mdx
+<Card title="Product" asset="images/product.webp" alt="Front view of the product">
+  Description, **details**, and other built-in components can go here.
+</Card>
+```
+
+`asset` is relative to the **current MDX document**, so local and remote
+previews keep the same scope. HTTPS URLs also work. Absolute paths, traversal,
+credentials, and executable URL schemes are rejected. The extension chooses
+an image, video, audio player, or a file link. Use
+`assetType="image|video|audio|file"` for extensionless URLs or an explicit mode;
+`alt` gives the image/media an accessible description.
+
+## Carousels — `Carousel`
+
+<Carousel title="Authoring workflow" perView={2}>
+  <Card title="Write">Start with the actual information in Markdown.</Card>
+  <Card title="Attach">Keep supporting assets alongside the MDX source.</Card>
+  <Card title="Preview">Verify the result in the local or remote viewer.</Card>
+</Carousel>
+
+```mdx
+<Carousel title="Product views" perView={2}>
+  <Card title="Front" asset="images/front.webp" alt="Product front" />
+  <Card title="Back" asset="images/back.webp" alt="Product back" />
+</Carousel>
+```
+
+`perView` is 1–3 (default 1); mobile shows one slide. Scroll/swipe, use the
+previous/next buttons, or focus the slide track and press
+**ArrowLeft / ArrowRight / Home / End**. No autoplay; reduced-motion
+preferences are respected. Without JavaScript, all slides remain scrollable.
+
+## Structured tables — `Table`
+
+<Table title="Source formats" columns={["Format", "Entry file"]} rows={[["MDX", "index.mdx"], ["Markdown", "index.md"], ["HTML", "index.html"]]} />
+
+```mdx
+<Table
+  title="Assets"
+  columns={[{ key: "name", label: "Name" }, { key: "size", label: "Bytes", align: "right" }]}
+  rows={[{ name: "cover.webp", size: 1024 }, { name: "diagram.svg", size: 2048 }]}
+/>
+```
+
+Use literal `columns` + `rows` (arrays or keyed objects), or put a regular
+Markdown table inside `<Table title="...">`. Do not combine the modes.
+Cells are escaped scalar values, never evaluated HTML/JSX. Limits: 24 columns,
+500 rows, 4,096 characters per cell and 512,000 characters total. Invalid
+data produces a visible error; it is not silently truncated.
 
 ## Tables — plain GFM, no component needed
 

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Artifact, RemoteSummary } from '../../types/artifact.js';
 import { useArtifactEvents } from '../hooks/useArtifactEvents.js';
-import { eventsUrl, previewUrl, projectBase, artifactEntryFile } from '../lib/project.js';
+import { eventsUrl, previewUrl, projectBase, artifactEntryFile, getProjectIdFromPath, getArtifactPagePath } from '../lib/project.js';
 import { PAINT_POLL_MS, previewDocumentPainted } from '../lib/preview.js';
 import { Maximize2, Minimize2, Box, AlertTriangle, RefreshCw, ServerOff } from 'lucide-react';
+import { CopyForAgent } from './CopyForAgent.js';
+import { buildAgentContext, type AgentProjectContext } from '../lib/agent-context.js';
 
 export interface RemoteViewerContext {
   remoteId: string;
@@ -17,6 +19,8 @@ interface ArtifactViewerProps {
   onToggleMaximize?: () => void;
   /** Absent = current local URL/SSE behavior. Present = broker mode. */
   remote?: RemoteViewerContext;
+  /** Source location for agent handoffs; remote projects intentionally omit local paths. */
+  project?: AgentProjectContext;
 }
 
 const LOAD_TIMEOUT_MS = 15000;
@@ -45,10 +49,11 @@ async function preflightPreview(url: string): Promise<LoadError> {
   }
 }
 
-export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote }: ArtifactViewerProps) {
+export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote, project }: ArtifactViewerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<LoadError>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [activePage, setActivePage] = useState<{ scope: string; path: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paintRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoRetriedRef = useRef(false);
@@ -220,6 +225,22 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
     );
   }
 
+  const copyProject = project ?? { projectId: remote?.projectId ?? getProjectIdFromPath() ?? '' };
+  const copyScope = `${remote?.remoteId ?? 'local'}:${copyProject.projectId}:${artifact.slug}`;
+  const copyPage = activePage?.scope === copyScope ? activePage.path : undefined;
+  const copyAction = (
+    <CopyForAgent
+      key={`${copyScope}:${artifact.format}:${copyPage ?? ''}`}
+      content={buildAgentContext({
+        artifact,
+        project: copyProject,
+        remote: remote ? { remoteId: remote.remoteId, name: remote.remote.name, status: remote.remote.status } : undefined,
+        origin: window.location.origin,
+        page: copyPage,
+      })}
+    />
+  );
+
   // Offline remote: no iframe, no EventSource — catalog metadata only.
   if (isOffline && remote) {
     return (
@@ -239,28 +260,25 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
         </button>
+        <div className="mt-4">{copyAction}</div>
       </div>
     );
   }
 
   return (
     <div className="flex h-full w-full flex-1 flex-col bg-bg relative">
-      {/* Floating Maximize Button */}
-      {onToggleMaximize && (
-        <div className="absolute top-4 right-4 z-20">
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+        {copyAction}
+        {onToggleMaximize && (
           <button
             onClick={onToggleMaximize}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-panel text-text-muted hover:bg-panel-hover hover:text-text-secondary transition-all border border-line"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-panel text-text-muted shadow-sm transition-colors hover:bg-panel-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={isMaximized ? 'Exit full view' : 'Full view'}
           >
-            {isMaximized ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
+            {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Content */}
       <div className="relative flex-1 flex flex-col overflow-hidden bg-bg min-h-0" style={{ userSelect: 'text' }}>
@@ -310,7 +328,17 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
           sandbox="allow-scripts allow-same-origin allow-popups"
           className={`h-full w-full border-0 transition-opacity duration-300 ${isLoading && !loadError ? 'opacity-0' : 'opacity-100'}`}
           title={artifact.title}
-          onLoad={reveal}
+          onLoad={() => {
+            reveal();
+            try {
+              const url = iframeRef.current?.contentWindow?.location.href;
+              const page = url ? getArtifactPagePath(url, { origin: window.location.origin, projectId: copyProject.projectId, slug: artifact.slug, remoteId: remote?.remoteId }) : null;
+              setActivePage(page && page !== artifactEntryFile(artifact.format) ? { scope: copyScope, path: page } : null);
+            } catch {
+              // Cross-origin navigation is not a page within this artifact.
+              setActivePage(null);
+            }
+          }}
           onError={() => {
             clearTimer();
             setIsLoading(false);

@@ -134,6 +134,18 @@ omp plugin link ./packages/pi-extension
   real; props must be literals, so agents inline their data. Module
   statements and `{/* comments */}` are hidden; unknown components keep
   visible placeholders.
+- **Cards and collections** — `Card` references an image/video/audio/file asset,
+  `Cards` creates a responsive grid, `Carousel` adds scrolling and keyboard
+  controls, and `Table` renders literal rows/columns or Markdown tables.
+- **Multi-page MDX** — keep `index.mdx` as the overview and attach focused
+  sibling pages. `Pages` provides a page map, active-page highlighting and
+  previous/next links. Copy for agent identifies the current page's source.
+- **Native SVG in MDX** — write a lowercase `<svg viewBox="...">` block for
+  detailed architecture diagrams with groups, paths, markers and multiline
+  labels. XML is validated, active content is filtered, IDs/references are
+  isolated per diagram, and wide graphics expand at natural canvas width.
+  The live guide explains chart-vs-diagram choices, layout, real data and
+  safe literal SVG authoring.
 
   ### Authoring JSON data views (TaskList / Kanban / Properties)
 

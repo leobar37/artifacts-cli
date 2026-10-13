@@ -17,6 +17,8 @@ const CapabilitiesDetails = z.object({
     name: z.string(),
     props: z.array(z.object({ name: z.string() })),
   })),
+  features: z.array(z.string()),
+  usageGuidance: z.array(z.string()),
   mermaid: z.object({ supported: z.boolean() }),
   guideUrl: z.string().nullable(),
 });
@@ -72,10 +74,11 @@ describe("artifact_capabilities tool", () => {
     const details = CapabilitiesDetails.parse(result.details);
     expect(details.formats.map((f) => f.format)).toEqual(["mdx", "md", "html"]);
     expect(details.components.map((c) => c.name).sort()).toEqual([
-      "Audio", "Callout", "Chart", "Kanban", "Properties", "Section", "Stat", "Stats", "Svg", "TaskList", "Video", "Webframe",
+      "Audio", "Callout", "Card", "Cards", "Carousel", "Chart", "Kanban", "Pages", "Properties", "Section", "Stat", "Stats", "Svg", "Table", "TaskList", "Video", "Webframe",
     ]);
     expect(details.mermaid.supported).toBe(true);
     expect(result.content[0].text).toContain("components:");
+    expect(details.features.join(" ")).toContain('lowercase block-level <svg');
   });
 
   it("exposes the JSON-backed data views with features and producer guidance", async () => {

@@ -17,9 +17,7 @@ import { RemoteSwitcher } from "./components/RemoteSwitcher.js";
 import { ProjectSwitcher } from "./components/ProjectSwitcher.js";
 import { SearchInput } from "./components/SearchInput.js";
 import { filterArtifacts, matchesText } from "./lib/artifact-search.js";
-import { ChevronRight, ChevronLeft, X, AlertCircle, FolderOpen, Server } from "lucide-react";
-
-type ArtifactType = "generic" | "study" | "wireframe";
+import { ChevronRight, X, AlertCircle, FolderOpen, Server } from "lucide-react";
 
 export default function App() {
   const { role, loading: runtimeLoading } = useRuntimeInfo();
@@ -216,8 +214,7 @@ function UnknownBrokerProject({ remote, remotes, projectId, projects }: {
 }
 
 export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote: RemoteSummary; remotes: RemoteSummary[]; projectId: string }) {
-  const [selectedType, setSelectedType] = useState<ArtifactType | "all">("all");
-  const { project, artifacts, total, loading, error, refetch } = useBrokerProject(remote.remoteId, projectId, selectedType === 'all' ? undefined : selectedType);
+  const { project, artifacts, total, loading, error, refetch } = useBrokerProject(remote.remoteId, projectId);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const allListed = wireList(artifacts);
@@ -274,7 +271,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
   const effectiveSidebarCollapsed = sidebarCollapsed || viewerMaximized;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg font-sans">
+    <div className="flex h-dvh flex-col bg-bg font-sans">
       {!viewerMaximized && (
         <BrokerProjectHeader
           remote={remote}
@@ -286,14 +283,12 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
           isLoading={loading}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          selectedType={selectedType}
-          onSelectType={setSelectedType}
         />
       )}
 
-      <div className={`flex ${viewerMaximized ? "h-dvh" : "flex-1"} overflow-hidden relative`}>
+      <div className={`relative flex min-h-0 ${viewerMaximized ? "h-dvh" : "flex-1"} overflow-hidden`}>
         <aside
-          className={`border-r border-line bg-panel transition-all duration-300 ease-in-out z-10
+          className={`min-h-0 shrink-0 border-r border-line bg-panel transition-all duration-300 ease-in-out z-10
             ${effectiveSidebarCollapsed ? "w-0 overflow-hidden opacity-0" : "w-full md:w-80 lg:w-96 opacity-100"}`}
         >
           {loading && artifacts.length === 0 ? (
@@ -302,38 +297,17 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
               <p className="text-sm text-text-muted">Loading artifacts...</p>
             </div>
           ) : (
-            <div className="flex h-full flex-col">
-              <div className="p-3 pb-1">
-                <SearchInput value={query} onChange={setQuery} placeholder="Search artifacts…" ariaLabel="Search artifacts" />
-              </div>
-              <div className="min-h-0 flex-1">
-                <ArtifactList
-                  artifacts={visible}
-                  selectedSlug={selectedArtifact?.slug || null}
-                  onSelect={(a) => setSelectedSlug(a?.slug ?? null)}
-                  query={query}
-                  totalCount={allListed.length}
-                />
-              </div>
-            </div>
+            <ArtifactList
+              artifacts={visible}
+              selectedSlug={selectedArtifact?.slug || null}
+              onSelect={(a) => setSelectedSlug(a?.slug ?? null)}
+              query={query}
+              totalCount={allListed.length}
+              onQueryChange={setQuery}
+              onCollapse={() => setSidebarCollapsed(true)}
+            />
           )}
         </aside>
-
-        {!viewerMaximized && (
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`
-              hidden md:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -ml-3 z-20
-              h-8 w-6 bg-panel border border-line rounded-r-md
-              text-text-muted hover:text-text-secondary transition-colors
-              ${!effectiveSidebarCollapsed ? "left-80 lg:left-96 ml-0 rounded-l-md border-l-0" : "rounded-l-none border-l-0"}
-            `}
-            title={effectiveSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            style={{ transform: effectiveSidebarCollapsed ? "translateY(-50%)" : "translate(-100%, -50%)" }}
-          >
-            {effectiveSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
-        )}
 
         <div className="hidden flex-1 md:flex relative z-0 overflow-hidden">
           <div className="flex-1 min-w-0">
@@ -342,6 +316,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
               isMaximized={viewerMaximized}
               onToggleMaximize={() => setViewerMaximized(!viewerMaximized)}
               remote={{ remoteId: remote.remoteId, projectId, remote }}
+              project={{ projectId, name: project?.name }}
             />
           </div>
         </div>
@@ -365,6 +340,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
               <ArtifactViewer
                 artifact={selectedArtifact}
                 remote={{ remoteId: remote.remoteId, projectId, remote }}
+                project={{ projectId, name: project?.name }}
               />
             </div>
           </div>
@@ -388,7 +364,7 @@ function wireList(artifacts: { slug: string; title: string; relativePath: string
   }));
 }
 
-function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar, selectedType, onSelectType }: {
+function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, onRefresh, isLoading, sidebarCollapsed, onToggleSidebar }: {
   remote: RemoteSummary;
   remotes: RemoteSummary[];
   projectId: string;
@@ -398,8 +374,6 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
   isLoading: boolean;
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
-  selectedType: ArtifactType | 'all';
-  onSelectType: (t: ArtifactType | 'all') => void;
 }) {
   const { remotes: overview } = useBrokerOverview();
   const group = findRemoteGroup(overview, remote.remoteId);
@@ -416,8 +390,6 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
       isLoading={isLoading}
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={onToggleSidebar}
-      selectedType={selectedType}
-      onSelectType={onSelectType}
       projectName={projectName}
       projectId={projectId}
       projects={scoped}
@@ -433,10 +405,7 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
 }
 
 export function ProjectDashboard({ project, projects }: { project: ProjectEntry; projects: ProjectEntry[] }) {
-  const [selectedType, setSelectedType] = useState<ArtifactType | "all">("all");
-  const { artifacts, total, loading, error, refetch } = useArtifacts({
-    type: selectedType,
-  });
+  const { artifacts, total, loading, error, refetch } = useArtifacts();
   const { selectedArtifact, selectArtifact } = useSelectedArtifact();
   const { name: projectName } = useProject();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -489,8 +458,6 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
           isLoading={loading}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          selectedType={selectedType}
-          onSelectType={setSelectedType}
           projectName={projectName}
           projectId={project.projectId}
           projects={projects}
@@ -498,12 +465,12 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
       )}
 
       <div
-        className={`flex ${viewerMaximized ? "h-screen" : "flex-1"} overflow-hidden relative`}
+        className={`relative flex min-h-0 ${viewerMaximized ? "h-screen" : "flex-1"} overflow-hidden`}
       >
         {/* Sidebar */}
         <aside
           className={`
-            border-r border-line bg-panel transition-all duration-300 ease-in-out z-10
+            min-h-0 shrink-0 border-r border-line bg-panel transition-all duration-300 ease-in-out z-10
             ${effectiveSidebarCollapsed ? "w-0 overflow-hidden opacity-0" : "w-full md:w-80 lg:w-96 opacity-100"}
           `}
         >
@@ -515,53 +482,24 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
               </p>
             </div>
           ) : (
-            <div className="flex h-full flex-col">
-              <div className="p-3 pb-1">
-                <SearchInput value={query} onChange={setQuery} placeholder="Search artifacts…" ariaLabel="Search artifacts" />
-              </div>
-              <div className="min-h-0 flex-1">
-                <ArtifactList
-                  artifacts={visible}
-                  selectedSlug={selectedArtifact?.slug || null}
-                  onSelect={handleSelectArtifact}
-                  query={query}
-                  totalCount={artifacts.length}
-                />
-              </div>
-            </div>
+            <ArtifactList
+              artifacts={visible}
+              selectedSlug={selectedArtifact?.slug || null}
+              onSelect={handleSelectArtifact}
+              query={query}
+              totalCount={artifacts.length}
+              onQueryChange={setQuery}
+              onCollapse={() => setSidebarCollapsed(true)}
+            />
           )}
         </aside>
-
-        {/* Sidebar Toggle */}
-        {!viewerMaximized && (
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`
-              hidden md:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 -ml-3 z-20
-              h-8 w-6 bg-panel border border-line rounded-r-md
-              text-text-muted hover:text-text-secondary transition-colors
-              ${!effectiveSidebarCollapsed ? "left-80 lg:left-96 ml-0 rounded-l-md border-l-0" : "rounded-l-none border-l-0"}
-            `}
-            title={effectiveSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            style={{
-              transform: effectiveSidebarCollapsed
-                ? "translateY(-50%)"
-                : "translate(-100%, -50%)",
-            }}
-          >
-            {effectiveSidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
-        )}
 
         {/* Main viewer */}
         <div className="hidden flex-1 md:flex relative z-0 overflow-hidden">
           <div className="flex-1 min-w-0">
             <ArtifactViewer
               artifact={selectedArtifact}
+              project={project}
               isMaximized={viewerMaximized}
               onToggleMaximize={() => setViewerMaximized(!viewerMaximized)}
             />
@@ -586,7 +524,7 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <ArtifactViewer artifact={selectedArtifact} />
+              <ArtifactViewer artifact={selectedArtifact} project={project} />
             </div>
           </div>
         </div>

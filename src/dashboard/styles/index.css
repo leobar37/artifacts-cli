@@ -10,8 +10,8 @@
     --panel-hover: #f0efed;
     --text-primary: #1f2328;
     --text-secondary: #4a4f55;
-    --text-muted: #8a8f96;
-    --text-faint: #b5b9bf;
+    --text-muted: #666e78;
+    --text-faint: #858d97;
     --line: #e8e6e1;
     --line-subtle: #f0eeea;
     --accent: #5a6b7b;
@@ -40,8 +40,8 @@
     --panel-hover: #1e2025;
     --text-primary: #f0f0ee;
     --text-secondary: #b0b4ba;
-    --text-muted: #7a7e85;
-    --text-faint: #55595f;
+    --text-muted: #959ca7;
+    --text-faint: #767e8a;
     --line: #24272d;
     --line-subtle: #1a1c20;
     --accent: #6b7d8d;
@@ -108,6 +108,17 @@
   }
   .mobile-preview-overlay > div {
     padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Keep scope menus inside narrow viewports regardless of which trigger opens. */
+@media (max-width: 639px) {
+  .scope-popover {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    top: auto;
+    width: auto;
   }
 }
 

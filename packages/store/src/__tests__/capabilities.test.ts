@@ -11,7 +11,25 @@ describe('getViewerCapabilities', () => {
   it('documents every renderer registered in mdx-components', () => {
     const documented = new Set(getViewerCapabilities().components.map((c) => c.name));
     // Keep in sync with renderMdxComponent's switch.
-    expect(documented).toEqual(new Set(['Chart', 'Stats', 'Stat', 'Callout', 'Webframe', 'Video', 'Audio', 'Section', 'Svg', 'TaskList', 'Kanban', 'Properties']));
+    expect(documented).toEqual(new Set(['Chart', 'Stats', 'Stat', 'Callout', 'Webframe', 'Video', 'Audio', 'Section', 'Svg', 'Card', 'Cards', 'Carousel', 'Table', 'Pages', 'TaskList', 'Kanban', 'Properties']));
+  });
+
+  it('documents collection components and asset references for agent authoring', () => {
+    const components = Object.fromEntries(getViewerCapabilities().components.map((component) => [component.name, component]));
+    expect(components.Card.props.map((prop) => prop.name)).toEqual(['title', 'subtitle', 'asset', 'assetType', 'alt', 'children']);
+    expect(components.Card.example).toContain('asset="images/product.webp"');
+    expect(components.Carousel.description).toContain('no autoplay');
+    expect(components.Table.props.find((prop) => prop.name === 'rows')?.description).toContain('500');
+    expect(components.Cards.props.find((prop) => prop.name === 'columns')?.description).toContain('1-4');
+  });
+
+  it('teaches agents to organize multi-page MDX artifacts without implying versioned siblings', () => {
+    const capabilities = getViewerCapabilities();
+    const pages = capabilities.components.find((component) => component.name === 'Pages');
+    expect(pages?.example).toContain('href: "details.mdx"');
+    expect(pages?.props.find((prop) => prop.name === 'items')?.description).toContain('1-50');
+    expect(capabilities.usageGuidance.join(' ')).toContain('split by coherent topic');
+    expect(capabilities.usageGuidance.join(' ')).toContain('not independently versioned');
   });
 
   it('documents the JSON-backed data views with an exclusive data|src choice', () => {
@@ -44,6 +62,20 @@ describe('getViewerCapabilities', () => {
     expect(guidance).toContain('default to prose');
     expect(guidance).toContain('never invent');
     expect(guidance).toContain('one per document');
+  });
+
+  it('documents numerical-chart guidance and native SVG architecture support', () => {
+    const capabilities = getViewerCapabilities();
+    const features = capabilities.features.join(' ');
+    const guidance = capabilities.usageGuidance.join(' ');
+    expect(features).toContain('lowercase block-level <svg');
+    expect(features).toContain('namespaced per diagram');
+    expect(features).toContain('512 KiB');
+    expect(features).toContain('primitive shapes');
+    expect(guidance).toContain('labeled arrows');
+    expect(guidance).toContain('verified');
+    expect(guidance).toContain('quoted XML');
+    expect(capabilities.components.find((component) => component.name === 'Chart')?.props.find((prop) => prop.name === 'data')?.description).toContain('finite numeric');
   });
 
   it('teaches the data-view data flow, limits and failure semantics in features', () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
-import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, act, fireEvent } from "@testing-library/react";
 import { ArtifactViewer } from "../ArtifactViewer.js";
 import type { Artifact } from "../../../types/artifact.js";
 
@@ -96,8 +96,8 @@ describe("ArtifactViewer (broker mode)", () => {
     });
   });
 
-  it("points markdown artifacts at index.md with the dashboard theme", async () => {
-    const mdArtifact = { ...ARTIFACT, format: "md" as const };
+  it.each(['md', 'mdx'] as const)("points %s artifacts at their source entry with the dashboard theme", async (format) => {
+    const mdArtifact = { ...ARTIFACT, format };
     render(
       <ArtifactViewer
         artifact={mdArtifact}
@@ -113,7 +113,7 @@ describe("ArtifactViewer (broker mode)", () => {
     );
     const iframe = (await screen.findByTitle("Demo")) as HTMLIFrameElement;
     const src = iframe.getAttribute("src") ?? "";
-    expect(src).toContain("/r/r-a/p/p1/artifacts/demo/index.md?");
+    expect(src).toContain(`/r/r-a/p/p1/artifacts/demo/index.${format}?`);
     expect(src).toMatch(/theme=(dark|light)/);
   });
 
@@ -169,5 +169,61 @@ describe("ArtifactViewer (broker mode)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("copies local MDX source context and refreshes it when the selected artifact changes", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    const mdx = { ...ARTIFACT, format: "mdx" as const, path: "/shop/docs/artifacts/demo/index.mdx", relativePath: "docs/artifacts/demo/index.mdx" };
+    const project = { projectId: "p1", name: "shop", projectPath: "/shop" };
+    const { rerender } = render(<ArtifactViewer artifact={mdx} project={project} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy for agent" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const first = writeText.mock.calls[0][0] as string;
+    expect(first).toContain('"absoluteSourceFile": "/shop/docs/artifacts/demo/index.mdx"');
+    expect(first).toContain("Screenshot_2026-10-12_at_11-47-23.png");
+    expect(first).toContain("Preserve MDX frontmatter");
+    rerender(<ArtifactViewer artifact={{ ...mdx, slug: "next", title: "Next", relativePath: "docs/artifacts/next/index.mdx", path: "/shop/docs/artifacts/next/index.mdx" }} project={project} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy for agent" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    expect(writeText.mock.calls[1][0]).toContain('"slug": "next"');
+    expect(writeText.mock.calls[1][0]).not.toContain("docs/artifacts/demo/index.mdx");
+  });
+
+  it("copies the current sibling page after iframe navigation without resetting the preview", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const mdx = { ...ARTIFACT, format: "mdx" as const, path: "/shop/docs/artifacts/demo/index.mdx", relativePath: "docs/artifacts/demo/index.mdx" };
+    render(<ArtifactViewer artifact={mdx} project={{ projectId: "p1", name: "shop", projectPath: "/shop" }} />);
+    const iframe = screen.getByTitle("Demo") as HTMLIFrameElement;
+    Object.defineProperty(iframe, "contentWindow", {
+      configurable: true,
+      value: { location: { href: `${window.location.origin}/p/p1/artifacts/demo/details.mdx?theme=light` } },
+    });
+    fireEvent.load(iframe);
+    fireEvent.click(screen.getByRole("button", { name: "Copy for agent" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toContain('"sourceFile": "docs/artifacts/demo/details.mdx"');
+    expect(writeText.mock.calls[0][0]).toContain('"entrySourceFile": "docs/artifacts/demo/index.mdx"');
+    expect(writeText.mock.calls[0][0]).toContain('"absoluteSourceFile": "/shop/docs/artifacts/demo/details.mdx"');
+    expect(iframe.getAttribute("src")).toContain("/artifacts/demo/index.mdx?");
+  });
+
+  it("keeps agent handoff available for an offline remote without fabricating local paths", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    render(<ArtifactViewer artifact={ARTIFACT} project={{ projectId: "p1", name: "shop" }} remote={{
+      remoteId: "r-b", projectId: "p1", remote: {
+        remoteId: "r-b", name: "macbook", version: "v", status: "offline",
+        lastSeenAt: "2026-02-02T00:00:00.000Z", projectCount: 1, artifactCount: 1,
+      },
+    }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy for agent" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toContain("/r/r-b/p/p1/");
+    expect(writeText.mock.calls[0][0]).toContain("This remote is offline.");
+    expect(writeText.mock.calls[0][0]).not.toContain("absoluteSourceFile");
+    expect(document.querySelector("iframe")).toBeNull();
   });
 });
