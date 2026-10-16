@@ -323,6 +323,7 @@ export function ArtifactViewer({ artifact, isMaximized, onToggleMaximize, remote
         )}
 
         <iframe
+          key={`${copyScope}:${artifact.format}`}
           ref={iframeRef}
           src={previewSrc ?? undefined}
           sandbox="allow-scripts allow-same-origin allow-popups"

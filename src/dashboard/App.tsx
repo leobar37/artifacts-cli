@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Artifact, ProjectEntry, RemoteSummary } from "../types/artifact.js";
 import { useArtifacts } from "./hooks/useArtifacts.js";
 import { useSelectedArtifact } from "./hooks/useSelectedArtifact.js";
@@ -215,39 +215,12 @@ function UnknownBrokerProject({ remote, remotes, projectId, projects }: {
 
 export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote: RemoteSummary; remotes: RemoteSummary[]; projectId: string }) {
   const { project, artifacts, total, loading, error, refetch } = useBrokerProject(remote.remoteId, projectId);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const allListed = wireList(artifacts);
+  const { selectedArtifact, selectArtifact } = useSelectedArtifact(allListed);
   const visible = filterArtifacts(allListed, query);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewerMaximized, setViewerMaximized] = useState(false);
-
-  // Deep link: /r/<remote>/p/<id>/?select=<slug>
-  useEffect(() => {
-    if (selectedSlug || artifacts.length === 0) return;
-    const slug = new URLSearchParams(window.location.search).get("select");
-    if (!slug) return;
-    if (artifacts.some((a) => a.slug === slug)) {
-      setSelectedSlug(slug);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [artifacts, selectedSlug]);
-
-  const selectedArtifact: Artifact | null = (() => {
-    const found = artifacts.find((a) => a.slug === selectedSlug);
-    if (!found) return null;
-    return {
-      slug: found.slug,
-      title: found.title,
-      path: found.relativePath,
-      relativePath: found.relativePath,
-      type: found.type,
-      format: found.format,
-      createdAt: new Date(found.createdAt),
-      modifiedAt: new Date(found.modifiedAt),
-      size: found.size,
-    };
-  })();
 
   if (error) {
     // Keep global broker navigation; show the failure in the content panel.
@@ -300,7 +273,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
             <ArtifactList
               artifacts={visible}
               selectedSlug={selectedArtifact?.slug || null}
-              onSelect={(a) => setSelectedSlug(a?.slug ?? null)}
+              onSelect={selectArtifact}
               query={query}
               totalCount={allListed.length}
               onQueryChange={setQuery}
@@ -329,7 +302,7 @@ export function BrokerProjectDashboard({ remote, remotes, projectId }: { remote:
             <div className="flex items-center justify-between border-b border-line bg-panel px-4 py-3">
               <h2 className="truncate text-sm font-medium text-text-primary">{selectedArtifact.title}</h2>
               <button
-                onClick={() => setSelectedSlug(null)}
+                onClick={() => selectArtifact(null)}
                 className="rounded-lg p-2 text-text-muted hover:bg-panel-hover hover:text-text-primary transition-colors"
                 aria-label="Close preview"
               >
@@ -406,28 +379,12 @@ function BrokerProjectHeader({ remote, remotes, projectId, projectName, total, o
 
 export function ProjectDashboard({ project, projects }: { project: ProjectEntry; projects: ProjectEntry[] }) {
   const { artifacts, total, loading, error, refetch } = useArtifacts();
-  const { selectedArtifact, selectArtifact } = useSelectedArtifact();
+  const { selectedArtifact, selectArtifact } = useSelectedArtifact(artifacts);
   const { name: projectName } = useProject();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewerMaximized, setViewerMaximized] = useState(false);
   const [query, setQuery] = useState("");
   const visible = filterArtifacts(artifacts, query);
-
-  const handleSelectArtifact = (artifact: Artifact | null) => {
-    selectArtifact(artifact);
-  };
-
-  // Deep link from the overview: /p/<id>/?select=<slug>
-  useEffect(() => {
-    if (selectedArtifact || artifacts.length === 0) return;
-    const slug = new URLSearchParams(window.location.search).get("select");
-    if (!slug) return;
-    const found = artifacts.find((a) => a.slug === slug);
-    if (found) {
-      selectArtifact(found);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [artifacts, selectedArtifact, selectArtifact]);
 
   if (error) {
     return (
@@ -485,7 +442,7 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
             <ArtifactList
               artifacts={visible}
               selectedSlug={selectedArtifact?.slug || null}
-              onSelect={handleSelectArtifact}
+              onSelect={selectArtifact}
               query={query}
               totalCount={artifacts.length}
               onQueryChange={setQuery}
@@ -516,7 +473,7 @@ export function ProjectDashboard({ project, projects }: { project: ProjectEntry;
                 {selectedArtifact.title}
               </h2>
               <button
-                onClick={() => handleSelectArtifact(null)}
+                onClick={() => selectArtifact(null)}
                 className="rounded-lg p-2 text-text-muted hover:bg-panel-hover hover:text-text-primary transition-colors"
                 aria-label="Close preview"
               >

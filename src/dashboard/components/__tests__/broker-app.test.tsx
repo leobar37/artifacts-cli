@@ -9,6 +9,7 @@ import type { RemoteOverviewGroup, RemoteSummary } from "../../../types/artifact
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
 });
 
 function client() {
@@ -151,6 +152,7 @@ describe("BrokerOverview", () => {
 
 describe("BrokerProjectDashboard", () => {
   const ARTIFACTS = OVERVIEW[0].projects[0].artifacts;
+  beforeEach(() => { window.history.replaceState(null, "", "/r/r-a/p/p1/"); });
 
   function stubProject(data: { error?: string } | { ok: true }) {
     vi.stubGlobal("fetch", vi.fn(async (url: unknown, init?: { method?: string }) => {
@@ -223,5 +225,34 @@ describe("BrokerProjectDashboard", () => {
     const header = document.querySelector("header");
     expect(header?.textContent).toContain("ubuntu-dev");
     expect(header?.textContent).toContain("Online");
+  });
+
+  it("preserves a remote-qualified artifact deep link after data loads", async () => {
+    stubProject({ ok: true });
+    window.history.replaceState({ marker: "keep" }, "", "/r/r-a/p/p1/?view=compact&select=demo#details");
+    const view = renderWithClient(<BrokerProjectDashboard remote={REMOTE_A} remotes={[REMOTE_A, REMOTE_B]} projectId="p1" />);
+    await screen.findByRole("button", { name: "Shop demo" });
+    await waitFor(() => expect(document.querySelector("iframe")?.getAttribute("src")).toContain("/r/r-a/p/p1/artifacts/demo/index.md"));
+    expect(window.location.pathname).toBe("/r/r-a/p/p1/");
+    expect(window.location.search).toBe("?view=compact&select=demo");
+    expect(window.location.hash).toBe("#details");
+    expect(window.history.state).toEqual({ marker: "keep" });
+    view.unmount();
+    renderWithClient(<BrokerProjectDashboard remote={REMOTE_A} remotes={[REMOTE_A, REMOTE_B]} projectId="p1" />);
+    await waitFor(() => expect(document.querySelector("iframe")?.getAttribute("src")).toContain("/r/r-a/p/p1/artifacts/demo/index.md"));
+  });
+
+  it("updates and clears selection without dropping remote, query or fragment context", async () => {
+    stubProject({ ok: true });
+    window.history.replaceState(null, "", "/r/r-a/p/p1/?view=compact#details");
+    renderWithClient(<BrokerProjectDashboard remote={REMOTE_A} remotes={[REMOTE_A, REMOTE_B]} projectId="p1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Shop demo" }));
+    expect(window.location.pathname).toBe("/r/r-a/p/p1/");
+    expect(new URLSearchParams(window.location.search).get("select")).toBe("demo");
+    fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
+    expect(window.location.pathname).toBe("/r/r-a/p/p1/");
+    expect(window.location.search).toBe("?view=compact");
+    expect(window.location.hash).toBe("#details");
+    expect(document.querySelector("iframe")).toBeNull();
   });
 });
